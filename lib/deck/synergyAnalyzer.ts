@@ -108,6 +108,12 @@ export interface EnchantmentArtifactSynergy {
   score: number; // 1-10
 }
 
+export interface LibraryTopSynergy {
+  topManipulators: string[]; // Scry, Fateseal, Brainstorm, etc.
+  topPayoffs: string[]; // Cards that care about top of library (Miracle, etc.)
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -122,6 +128,7 @@ export interface SynergyAnalysis {
   attackTriggerSynergy: AttackTriggerSynergy | null;
   tapUntapSynergy: TapUntapSynergy | null;
   enchantmentArtifactSynergy: EnchantmentArtifactSynergy | null;
+  libraryTopSynergy: LibraryTopSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -1189,6 +1196,82 @@ export function detectEnchantmentArtifactSynergy(cards: DeckCard[]): Enchantment
 }
 
 /**
+ * Detects library top manipulation synergies
+ */
+export function detectLibraryTopSynergy(cards: DeckCard[]): LibraryTopSynergy | null {
+  const topManipulators: string[] = [];
+  const topPayoffs: string[] = [];
+
+  // Top manipulation patterns
+  const manipulatorPatterns = [
+    /\bscry\b/i, // Scry mechanic
+    /\bfateseal\b/i, // Fateseal mechanic
+    /\bbrainstorm\b/i, // Brainstorm effect
+    /put.*on top of.*library/i, // Put on top of library
+    /look at the top.*card/i, // Look at top cards
+    /reveal the top.*card/i, // Reveal top cards
+    /top.*library.*hand/i, // Top to hand effects
+    /rearrange.*top/i, // Rearrange top cards
+  ];
+
+  // Top payoff patterns (cards that care about top of library)
+  const payoffPatterns = [
+    /\bmiracle\b/i, // Miracle mechanic
+    /top card of.*library/i, // Reference to top card
+    /top of.*library/i, // Reference to top of library
+    /reveal.*top/i, // Reveal top (if not already counted as manipulator)
+    /play.*top.*library/i, // Play from top of library
+    /cast.*top.*library/i, // Cast from top of library
+  ];
+
+  for (const deckCard of cards) {
+    const card = deckCard.card;
+    const oracle = card.oracle_text || '';
+    const name = card.name;
+
+    // Check for top manipulators
+    const isManipulator = manipulatorPatterns.some((pattern) => pattern.test(oracle));
+    if (isManipulator && !topManipulators.includes(name)) {
+      topManipulators.push(name);
+    }
+
+    // Check for top payoffs
+    const isPayoff = payoffPatterns.some((pattern) => pattern.test(oracle));
+    if (isPayoff && !topPayoffs.includes(name)) {
+      topPayoffs.push(name);
+    }
+  }
+
+  // Require at least 3 manipulators OR 2 payoffs
+  if (topManipulators.length < 3 && topPayoffs.length < 2) {
+    return null;
+  }
+
+  // Calculate score (1-10)
+  let score = 4; // Base score
+
+  const totalSynergy = topManipulators.length + topPayoffs.length;
+
+  if (topManipulators.length >= 8 && topPayoffs.length >= 4) {
+    score = 9; // Dedicated library manipulation deck
+  } else if (topManipulators.length >= 6 && topPayoffs.length >= 3) {
+    score = 8; // Strong library manipulation theme
+  } else if (topManipulators.length >= 5 && topPayoffs.length >= 2) {
+    score = 7; // Solid library manipulation synergy
+  } else if (topManipulators.length >= 4 && topPayoffs.length >= 2) {
+    score = 6; // Moderate library manipulation
+  } else if (totalSynergy >= 4) {
+    score = 5; // Light library manipulation theme
+  }
+
+  return {
+    topManipulators,
+    topPayoffs,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1500,6 +1583,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const attackTriggerSynergy = detectAttackTriggerSynergy(cards);
   const tapUntapSynergy = detectTapUntapSynergy(cards);
   const enchantmentArtifactSynergy = detectEnchantmentArtifactSynergy(cards);
+  const libraryTopSynergy = detectLibraryTopSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1577,6 +1661,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Library top synergy
+  if (libraryTopSynergy && libraryTopSynergy.score > 0) {
+    overallScore += libraryTopSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1603,6 +1693,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     attackTriggerSynergy,
     tapUntapSynergy,
     enchantmentArtifactSynergy,
+    libraryTopSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

@@ -335,6 +335,18 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // ライブラリートップ操作シナジー (Library Top Manipulation)
+  if (synergyAnalysis.libraryTopSynergy) {
+    const lt = synergyAnalysis.libraryTopSynergy;
+    synergyText += '\nライブラリートップ操作 (スコア:' + lt.score + '/10):\n';
+    if (lt.topManipulators.length > 0) {
+      synergyText += `- トップ操作 (Scry/Brainstorm等): ${lt.topManipulators.join(', ')}\n`;
+    }
+    if (lt.topPayoffs.length > 0) {
+      synergyText += `- トップ参照 (Miracle等): ${lt.topPayoffs.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

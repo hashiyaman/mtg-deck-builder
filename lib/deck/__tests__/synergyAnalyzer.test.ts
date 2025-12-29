@@ -13,6 +13,7 @@ import {
   detectAttackTriggerSynergy,
   detectTapUntapSynergy,
   detectEnchantmentArtifactSynergy,
+  detectLibraryTopSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1816,6 +1817,121 @@ describe('Synergy Analyzer', () => {
       const result = detectEnchantmentArtifactSynergy(cards);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('detectLibraryTopSynergy', () => {
+    it('should detect Scry-based library manipulation', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Serum Visions', oracle_text: 'Draw a card. Scry 2.' }), 4),
+        createDeckCard(createMockCard({ name: 'Sensei\'s Divining Top', oracle_text: 'Look at the top three cards of your library.' }), 2),
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.topManipulators).toContain('Preordain');
+      expect(result?.topManipulators).toContain('Opt');
+      expect(result?.topManipulators).toContain('Serum Visions');
+      expect(result?.topManipulators).toContain('Sensei\'s Divining Top');
+      expect(result?.score).toBeGreaterThanOrEqual(5);
+    });
+
+    it('should detect Miracle synergy with top manipulation', () => {
+      const cards: DeckCard[] = [
+        // Miracle cards (payoffs)
+        createDeckCard(createMockCard({ name: 'Terminus', oracle_text: 'Miracle {W}. Put all creatures on the bottom of their owners\' libraries.' }), 2),
+        createDeckCard(createMockCard({ name: 'Entreat the Angels', oracle_text: 'Miracle {X}{W}{W}. Create X 4/4 Angel tokens.' }), 2),
+        // Top manipulators (need 4+ for score >= 6)
+        createDeckCard(createMockCard({ name: 'Brainstorm', oracle_text: 'Draw three cards, then put two cards from your hand on top of your library.' }), 4),
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Ponder', oracle_text: 'Look at the top three cards of your library, then put them back in any order.' }), 4),
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.topPayoffs).toContain('Terminus');
+      expect(result?.topPayoffs).toContain('Entreat the Angels');
+      expect(result?.topManipulators).toContain('Brainstorm');
+      expect(result?.topManipulators).toContain('Preordain');
+      expect(result?.score).toBeGreaterThanOrEqual(6);
+    });
+
+    it('should detect top-of-library matters cards', () => {
+      const cards: DeckCard[] = [
+        // Payoffs
+        createDeckCard(createMockCard({ name: 'Bolas\'s Citadel', oracle_text: 'You may play the top card of your library. You may cast spells from the top of your library.' }), 2),
+        createDeckCard(createMockCard({ name: 'Future Sight', oracle_text: 'Play with the top card of your library revealed. You may play the top card of your library.' }), 2),
+        // Manipulators (need 4+ for score >= 6)
+        createDeckCard(createMockCard({ name: 'Brainstorm', oracle_text: 'Draw three cards, then put two cards from your hand on top of your library.' }), 4),
+        createDeckCard(createMockCard({ name: 'Scroll Rack', oracle_text: 'Put any number of cards from your hand on top of your library, then draw that many cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 4),
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.topPayoffs).toContain('Bolas\'s Citadel');
+      expect(result?.topPayoffs).toContain('Future Sight');
+      expect(result?.topManipulators).toContain('Brainstorm');
+      expect(result?.topManipulators).toContain('Scroll Rack');
+      expect(result?.score).toBeGreaterThanOrEqual(6);
+    });
+
+    it('should assign high score for dedicated top-matters deck', () => {
+      const cards: DeckCard[] = [
+        // 8+ manipulators
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Serum Visions', oracle_text: 'Draw a card. Scry 2.' }), 4),
+        createDeckCard(createMockCard({ name: 'Brainstorm', oracle_text: 'Draw three cards, then put two cards on top of your library.' }), 4),
+        createDeckCard(createMockCard({ name: 'Ponder', oracle_text: 'Look at the top three cards of your library, then put them back in any order.' }), 4),
+        createDeckCard(createMockCard({ name: 'Scroll Rack', oracle_text: 'Put cards from your hand on top of your library, then draw.' }), 2),
+        createDeckCard(createMockCard({ name: 'Sensei\'s Divining Top', oracle_text: 'Look at the top three cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Crystal Ball', oracle_text: 'Scry 2.' }), 2),
+        // 4+ payoffs
+        createDeckCard(createMockCard({ name: 'Bolas\'s Citadel', oracle_text: 'You may play the top card of your library.' }), 2),
+        createDeckCard(createMockCard({ name: 'Future Sight', oracle_text: 'Play with the top card revealed. You may play the top card of your library.' }), 2),
+        createDeckCard(createMockCard({ name: 'Terminus', oracle_text: 'Miracle {W}.' }), 2),
+        createDeckCard(createMockCard({ name: 'Courser of Kruphix', oracle_text: 'Play with the top card of your library revealed. You may play the top card if it\'s a land.' }), 4),
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.topManipulators.length).toBeGreaterThanOrEqual(8);
+      expect(result?.topPayoffs.length).toBeGreaterThanOrEqual(4);
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient manipulators and payoffs', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 2),
+        // Only 2 manipulators, below threshold
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should detect Fateseal as top manipulation', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Jace, the Mind Sculptor', oracle_text: 'Fateseal 1. Look at the top card of target opponent\'s library.' }), 2),
+        createDeckCard(createMockCard({ name: 'Preordain', oracle_text: 'Scry 2, then draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', oracle_text: 'Scry 1. Draw a card.' }), 4),
+      ];
+
+      const result = detectLibraryTopSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.topManipulators).toContain('Jace, the Mind Sculptor');
     });
   });
 

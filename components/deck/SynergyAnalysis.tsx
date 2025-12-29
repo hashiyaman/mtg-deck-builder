@@ -18,7 +18,8 @@ import {
   Wand2,
   Swords,
   RefreshCw,
-  Package
+  Package,
+  BookMarked
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -39,7 +40,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.spellslingerSynergy !== null ||
     synergies.attackTriggerSynergy !== null ||
     synergies.tapUntapSynergy !== null ||
-    synergies.enchantmentArtifactSynergy !== null;
+    synergies.enchantmentArtifactSynergy !== null ||
+    synergies.libraryTopSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -512,6 +514,33 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">アーティファクト参照 (Affinity/Improvise等): </span>
                   {synergies.enchantmentArtifactSynergy.artifactPayoffs.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Library Top Synergy */}
+        {synergies.libraryTopSynergy && (
+          <div className="border-l-4 border-l-sky-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BookMarked className="h-4 w-4 text-sky-500" />
+              <h4 className="font-semibold text-sm">ライブラリートップ操作</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.libraryTopSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.libraryTopSynergy.topManipulators.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">トップ操作 (Scry/Brainstorm等): </span>
+                  {synergies.libraryTopSynergy.topManipulators.join(', ')}
+                </div>
+              )}
+              {synergies.libraryTopSynergy.topPayoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">トップ参照 (Miracle等): </span>
+                  {synergies.libraryTopSynergy.topPayoffs.join(', ')}
                 </div>
               )}
             </div>
