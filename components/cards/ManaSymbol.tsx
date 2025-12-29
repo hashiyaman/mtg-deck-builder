@@ -55,6 +55,8 @@ export function ManaSymbol({ symbol, size = 'md', className = '' }: ManaSymbolPr
   }
 
   return (
+    // SVG mana symbols are small static assets, img tag is appropriate here
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={symbolPath}
       alt={symbol}

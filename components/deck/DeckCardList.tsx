@@ -27,19 +27,21 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
   // カードをタイプ別にグループ化
   const cardGroups = groupCardsByType(cards);
 
-  // 初期表示時と新しいカードタイプが追加された時に開く
+  // Open groups by default when new card types are added
   useEffect(() => {
     setOpenGroups((prev) => {
       const newOpenGroups = { ...prev };
       cardGroups.forEach((group) => {
-        // 既に状態が設定されていない場合のみデフォルトで開く
+        // Only set default state for new groups
         if (!(group.type in newOpenGroups)) {
           newOpenGroups[group.type] = true;
         }
       });
       return newOpenGroups;
     });
-  }, [cardGroups.length]); // カードグループの数が変わった時のみ実行
+    // Only run when number of groups changes (not when cardGroups reference changes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardGroups.length]);
 
   if (cards.length === 0) {
     return (

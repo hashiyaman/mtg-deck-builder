@@ -1,12 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Gemini APIクライアントの初期化
+// Initialize Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// Gemini 2.0 Flash モデルを使用（高速で高性能）
-const baseModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-
-// システムプロンプト
+// System prompt for deck analysis
 const SYSTEM_PROMPT = `あなたはMagic: The Gatheringの競技プレイヤーで、デッキ構築とメタゲーム分析の専門家です。
 数値データと確率統計に基づいた客観的な分析を行い、具体的で実践的な改善提案を提供します。
 
@@ -17,11 +14,11 @@ const SYSTEM_PROMPT = `あなたはMagic: The Gatheringの競技プレイヤー�
 - 簡潔で分かりやすい日本語で回答する`;
 
 /**
- * Gemini APIを使用してテキスト生成
+ * Generate text using Gemini API
  */
 export async function generateText(prompt: string, systemPrompt?: string): Promise<string> {
   try {
-    // システムプロンプトを含めてモデルを初期化
+    // Initialize model with system instruction
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.0-flash-exp',
       systemInstruction: systemPrompt || SYSTEM_PROMPT,
@@ -37,10 +34,16 @@ export async function generateText(prompt: string, systemPrompt?: string): Promi
 }
 
 /**
- * Gemini APIを使用してストリーミング生成
+ * Generate text stream using Gemini API
  */
-export async function* generateTextStream(prompt: string): AsyncGenerator<string> {
+export async function* generateTextStream(prompt: string, systemPrompt?: string): AsyncGenerator<string> {
   try {
+    // Initialize model with system instruction
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      systemInstruction: systemPrompt || SYSTEM_PROMPT,
+    });
+
     const result = await model.generateContentStream(prompt);
 
     for await (const chunk of result.stream) {

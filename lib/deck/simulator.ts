@@ -1,4 +1,5 @@
-import { Card, DeckCard } from '@/types/deck';
+import { Card } from '@/types/card';
+import { DeckCard } from '@/types/deck';
 import { isAvailableOnTurn1 } from './landClassifier';
 
 /**
