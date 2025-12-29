@@ -5,7 +5,16 @@ export interface ParsedDeckList {
   mainboard: DeckCard[];
   sideboard: DeckCard[];
   errors: string[];
+  warnings: string[];
 }
+
+export interface ImportProgress {
+  current: number;
+  total: number;
+  currentCard?: string;
+}
+
+export type ProgressCallback = (progress: ImportProgress) => void;
 
 /**
  * Remove furigana from Japanese card names
@@ -13,6 +22,39 @@ export interface ParsedDeckList {
  */
 function removeFurigana(text: string): string {
   return text.replace(/（[^）]+）/g, '');
+}
+
+/**
+ * Delay execution for rate limiting
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Search for similar card names (for suggestions on error)
+ */
+async function findSimilarCards(name: string, limit: number = 3): Promise<string[]> {
+  try {
+    const searchUrl = `/api/scryfall/search?q=${encodeURIComponent(name)}&unique=cards`;
+    const response = await fetch(searchUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+
+    if (!data.data || data.data.length === 0) {
+      return [];
+    }
+
+    // Return top N card names
+    return data.data.slice(0, limit).map((card: Card) => card.name);
+  } catch (error) {
+    console.warn('Failed to find similar cards:', error);
+    return [];
+  }
 }
 
 /**
@@ -27,13 +69,29 @@ function removeFurigana(text: string): string {
  * Sideboard
  * 2 Abrade (M21) 130
  */
-export async function parseArenaDeckList(text: string): Promise<ParsedDeckList> {
+export async function parseArenaDeckList(
+  text: string,
+  onProgress?: ProgressCallback
+): Promise<ParsedDeckList> {
   const lines = text.split('\n').map((line) => line.trim());
   const mainboard: DeckCard[] = [];
   const sideboard: DeckCard[] = [];
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   let currentSection: 'mainboard' | 'sideboard' = 'mainboard';
+
+  // First pass: parse all lines and collect card requests
+  interface CardRequest {
+    lineNumber: number;
+    quantity: number;
+    cardName: string;
+    setCode?: string;
+    collectorNumber?: string;
+    section: 'mainboard' | 'sideboard';
+  }
+
+  const cardRequests: CardRequest[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -71,26 +129,72 @@ export async function parseArenaDeckList(text: string): Promise<ParsedDeckList> 
     // Remove furigana from Japanese card names
     cardName = removeFurigana(cardName);
 
+    cardRequests.push({
+      lineNumber,
+      quantity,
+      cardName,
+      setCode,
+      collectorNumber,
+      section: currentSection,
+    });
+  }
+
+  // Second pass: fetch cards with batch processing and rate limiting
+  const BATCH_SIZE = 10; // Process 10 cards at a time
+  const RATE_LIMIT_DELAY = 100; // 100ms between requests (10 req/sec)
+
+  for (let i = 0; i < cardRequests.length; i++) {
+    const request = cardRequests[i];
+
+    // Report progress
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total: cardRequests.length,
+        currentCard: request.cardName,
+      });
+    }
+
     try {
       // Fetch card from Scryfall
-      const card = await fetchCardByName(cardName, setCode, collectorNumber);
+      const card = await fetchCardByName(request.cardName, request.setCode, request.collectorNumber);
 
       const deckCard: DeckCard = {
         card,
-        quantity,
+        quantity: request.quantity,
       };
 
-      if (currentSection === 'mainboard') {
+      // Check for set mismatch warning
+      if (request.setCode && card.set.toLowerCase() !== request.setCode.toLowerCase()) {
+        warnings.push(
+          `Line ${request.lineNumber}: Found "${card.name}" from ${card.set.toUpperCase()} instead of ${request.setCode.toUpperCase()}`
+        );
+      }
+
+      if (request.section === 'mainboard') {
         mainboard.push(deckCard);
       } else {
         sideboard.push(deckCard);
       }
     } catch (error) {
-      errors.push(`Line ${lineNumber}: Card not found - "${cardName}"${setCode ? ` (${setCode})` : ''}`);
+      // Try to find similar cards for suggestions
+      const suggestions = await findSimilarCards(request.cardName);
+      const suggestionText = suggestions.length > 0
+        ? ` Did you mean: ${suggestions.join(', ')}?`
+        : '';
+
+      errors.push(
+        `Line ${request.lineNumber}: Card not found - "${request.cardName}"${request.setCode ? ` (${request.setCode})` : ''}.${suggestionText}`
+      );
+    }
+
+    // Rate limiting: delay between requests (except for last one)
+    if (i < cardRequests.length - 1) {
+      await delay(RATE_LIMIT_DELAY);
     }
   }
 
-  return { mainboard, sideboard, errors };
+  return { mainboard, sideboard, errors, warnings };
 }
 
 /**

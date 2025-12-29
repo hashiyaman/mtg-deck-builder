@@ -13,10 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { parseArenaDeckList } from '@/lib/deck/deckImport';
+import { Progress } from '@/components/ui/progress';
+import { parseArenaDeckList, ImportProgress } from '@/lib/deck/deckImport';
 import { useDeckStore } from '@/store/deckStore';
 import { toast } from 'sonner';
-import { AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText, AlertTriangle } from 'lucide-react';
 
 interface DeckImportProps {
   open: boolean;
@@ -28,6 +29,8 @@ export function DeckImport({ open, onOpenChange, deckId }: DeckImportProps) {
   const [text, setText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
   const { currentDeck, loadDeck } = useDeckStore();
 
   const handleImport = async () => {
@@ -43,17 +46,26 @@ export function DeckImport({ open, onOpenChange, deckId }: DeckImportProps) {
 
     setIsImporting(true);
     setErrors([]);
+    setWarnings([]);
+    setProgress(null);
 
     try {
-      const result = await parseArenaDeckList(text);
+      const result = await parseArenaDeckList(text, (prog) => {
+        setProgress(prog);
+      });
 
       if (result.errors.length > 0) {
         setErrors(result.errors);
       }
 
+      if (result.warnings.length > 0) {
+        setWarnings(result.warnings);
+      }
+
       if (result.mainboard.length === 0 && result.sideboard.length === 0) {
         toast.error('No valid cards found in the deck list');
         setIsImporting(false);
+        setProgress(null);
         return;
       }
 
@@ -80,12 +92,13 @@ export function DeckImport({ open, onOpenChange, deckId }: DeckImportProps) {
       const totalImported = result.mainboard.reduce((sum, dc) => sum + dc.quantity, 0) +
                            result.sideboard.reduce((sum, dc) => sum + dc.quantity, 0);
 
+      const warningText = result.warnings.length > 0 ? `, ${result.warnings.length} warnings` : '';
       toast.success(
         `Successfully imported ${totalImported} cards` +
-        (result.errors.length > 0 ? ` (${result.errors.length} errors)` : '')
+        (result.errors.length > 0 ? ` (${result.errors.length} errors${warningText})` : warningText)
       );
 
-      if (result.errors.length === 0) {
+      if (result.errors.length === 0 && result.warnings.length === 0) {
         setText('');
         onOpenChange(false);
       }
@@ -94,6 +107,7 @@ export function DeckImport({ open, onOpenChange, deckId }: DeckImportProps) {
       toast.error('Failed to import deck list');
     } finally {
       setIsImporting(false);
+      setProgress(null);
     }
   };
 
@@ -127,6 +141,21 @@ Sideboard
             />
           </div>
 
+          {/* Progress Bar */}
+          {isImporting && progress && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>
+                  Importing: {progress.currentCard || 'Processing...'}
+                </span>
+                <span>
+                  {progress.current} / {progress.total}
+                </span>
+              </div>
+              <Progress value={(progress.current / progress.total) * 100} />
+            </div>
+          )}
+
           {/* Format Example */}
           <Alert>
             <FileText className="h-4 w-4" />
@@ -137,6 +166,21 @@ Sideboard
               </pre>
             </AlertDescription>
           </Alert>
+
+          {/* Warnings */}
+          {warnings.length > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Warnings:</strong>
+                <ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto">
+                  {warnings.map((warning, index) => (
+                    <li key={index}>• {warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Errors */}
           {errors.length > 0 && (
