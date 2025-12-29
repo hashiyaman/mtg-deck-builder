@@ -12,7 +12,8 @@ import {
   Zap,
   ArrowRightLeft,
   TrendingUp,
-  Target
+  Target,
+  Heart
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -27,7 +28,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.counterSynergy !== null ||
     synergies.keywordClusters.length > 0 ||
     synergies.feedbackLoops.length > 0 ||
-    synergies.thresholdSynergies.length > 0;
+    synergies.thresholdSynergies.length > 0 ||
+    synergies.sacrificeSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -246,6 +248,39 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sacrifice Synergy */}
+        {synergies.sacrificeSynergy && (
+          <div className="border-l-4 border-l-red-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="h-4 w-4 text-red-500" />
+              <h4 className="font-semibold text-sm">生け贄シナジー（アリストクラット）</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.sacrificeSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.sacrificeSynergy.outlets.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">生け贄先: </span>
+                  {synergies.sacrificeSynergy.outlets.join(', ')}
+                </div>
+              )}
+              {synergies.sacrificeSynergy.fodder.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">生け贄要員: </span>
+                  {synergies.sacrificeSynergy.fodder.join(', ')}
+                </div>
+              )}
+              {synergies.sacrificeSynergy.payoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">死亡誘発: </span>
+                  {synergies.sacrificeSynergy.payoffs.join(', ')}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -55,6 +55,13 @@ export interface ThresholdSynergy {
   score: number; // 1-10
 }
 
+export interface SacrificeSynergy {
+  outlets: string[]; // Cards that sacrifice creatures
+  fodder: string[]; // Resources to sacrifice (tokens, recursion)
+  payoffs: string[]; // Death triggers
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -63,6 +70,7 @@ export interface SynergyAnalysis {
   keywordClusters: KeywordCluster[];
   feedbackLoops: FeedbackLoop[];
   thresholdSynergies: ThresholdSynergy[];
+  sacrificeSynergy: SacrificeSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -359,6 +367,94 @@ export function detectKeywordClusters(cards: DeckCard[]): KeywordCluster[] {
   });
 
   return clusters.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Detects sacrifice synergies (Aristocrats strategy)
+ */
+export function detectSacrificeSynergy(cards: DeckCard[]): SacrificeSynergy | null {
+  const outlets: string[] = [];
+  const fodder: string[] = [];
+  const payoffs: string[] = [];
+
+  // Sacrifice outlet patterns
+  const outletPatterns = [
+    /sacrifice.*creature/i,
+    /sacrifice a creature/i,
+  ];
+
+  // Fodder patterns (token producers, recursion, expendable creatures)
+  const fodderPatterns = [
+    /create.*token/i,
+    /put.*token.*onto/i,
+    /when.*dies.*create/i, // Death triggers that create tokens
+    /when.*dies.*return/i, // Recursion
+    /persist|undying/i, // Automatic recursion
+  ];
+
+  // Death trigger payoff patterns
+  const payoffPatterns = [
+    /whenever.*creature.*dies/i,
+    /whenever.*creature.*put into.*graveyard/i,
+    /whenever.*dies/i,
+  ];
+
+  cards.forEach(({ card }) => {
+    const oracleText = card.oracle_text || '';
+    const cardName = card.name;
+
+    // Check for sacrifice outlets
+    if (outletPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!outlets.includes(cardName)) {
+        outlets.push(cardName);
+      }
+    }
+
+    // Check for fodder
+    if (fodderPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!fodder.includes(cardName)) {
+        fodder.push(cardName);
+      }
+    }
+
+    // Check for death trigger payoffs
+    if (payoffPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!payoffs.includes(cardName)) {
+        payoffs.push(cardName);
+      }
+    }
+  });
+
+  // Only return synergy if at least 2 of 3 components exist
+  const componentsPresent = (outlets.length > 0 ? 1 : 0) +
+                            (fodder.length > 0 ? 1 : 0) +
+                            (payoffs.length > 0 ? 1 : 0);
+
+  if (componentsPresent < 2) {
+    return null;
+  }
+
+  // Score based on all three components
+  let score = 0;
+
+  if (outlets.length >= 2 && fodder.length >= 3 && payoffs.length >= 2) {
+    score = 9; // Fully functional aristocrats deck
+  } else if (outlets.length >= 1 && fodder.length >= 2 && payoffs.length >= 2) {
+    score = 8; // Strong sacrifice theme
+  } else if (outlets.length >= 1 && fodder.length >= 2 && payoffs.length >= 1) {
+    score = 7; // Good sacrifice synergy
+  } else if (outlets.length >= 1 && fodder.length >= 1 && payoffs.length >= 1) {
+    score = 6; // Basic sacrifice synergy
+  } else if (componentsPresent === 2) {
+    score = 5; // Partial synergy
+  }
+
+  return {
+    outlets,
+    fodder,
+    payoffs,
+    score,
+  };
 }
 
 /**
@@ -667,6 +763,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const keywordClusters = detectKeywordClusters(cards);
   const feedbackLoops = detectFeedbackLoops(cards);
   const thresholdSynergies = detectThresholdSynergies(cards);
+  const sacrificeSynergy = detectSacrificeSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -708,6 +805,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Sacrifice synergy
+  if (sacrificeSynergy && sacrificeSynergy.score > 0) {
+    overallScore += sacrificeSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -728,6 +831,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     keywordClusters,
     feedbackLoops,
     thresholdSynergies,
+    sacrificeSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

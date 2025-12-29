@@ -220,6 +220,21 @@ export function buildStrategyAnalysisPrompt(
     });
   }
 
+  // 生け贄シナジー (Sacrifice/Aristocrats)
+  if (synergyAnalysis.sacrificeSynergy) {
+    const ss = synergyAnalysis.sacrificeSynergy;
+    synergyText += '\n生け贄シナジー (アリストクラット型) (スコア:' + ss.score + '/10):\n';
+    if (ss.outlets.length > 0) {
+      synergyText += `- 生け贄先: ${ss.outlets.join(', ')}\n`;
+    }
+    if (ss.fodder.length > 0) {
+      synergyText += `- 生け贄要員: ${ss.fodder.join(', ')}\n`;
+    }
+    if (ss.payoffs.length > 0) {
+      synergyText += `- 死亡誘発: ${ss.payoffs.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

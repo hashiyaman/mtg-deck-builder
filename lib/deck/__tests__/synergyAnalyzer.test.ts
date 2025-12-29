@@ -7,6 +7,7 @@ import {
   detectKeywordClusters,
   detectFeedbackLoops,
   detectThresholdSynergies,
+  detectSacrificeSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -758,6 +759,211 @@ describe('Synergy Analyzer', () => {
       const weakMetalcraft = weakResult.find((s) => s.type === 'metalcraft');
 
       expect(goodMetalcraft?.score).toBeGreaterThan(weakMetalcraft?.score || 0);
+    });
+  });
+
+  describe('detectSacrificeSynergy', () => {
+    it('should detect full aristocrats synergy (outlets + fodder + payoffs)', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Viscera Seer',
+            oracle_text: 'Sacrifice a creature: Scry 1.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Ashnods Altar',
+            oracle_text: 'Sacrifice a creature: Add {C}{C}.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Doomed Traveler',
+            oracle_text: 'When Doomed Traveler dies, create a 1/1 white Spirit creature token with flying.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Bitterblossom',
+            oracle_text: 'At the beginning of your upkeep, create a 1/1 black Faerie Rogue creature token with flying.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Blood Artist',
+            oracle_text: 'Whenever Blood Artist or another creature dies, target player loses 1 life and you gain 1 life.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Zulaport Cutthroat',
+            oracle_text: 'Whenever Zulaport Cutthroat or another creature you control dies, each opponent loses 1 life and you gain 1 life.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.outlets).toContain('Viscera Seer');
+      expect(result?.outlets).toContain('Ashnods Altar');
+      expect(result?.fodder).toContain('Doomed Traveler');
+      expect(result?.fodder).toContain('Bitterblossom');
+      expect(result?.payoffs).toContain('Blood Artist');
+      expect(result?.payoffs).toContain('Zulaport Cutthroat');
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should detect sacrifice outlets', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Cartel Aristocrat',
+            oracle_text: 'Sacrifice another creature: Cartel Aristocrat gains protection from the color of your choice until end of turn.',
+          })
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      // Only 1 component, should return null
+      expect(result).toBeNull();
+    });
+
+    it('should detect fodder (token producers)', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Doomed Traveler',
+            oracle_text: 'When Doomed Traveler dies, create a 1/1 token.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Young Pyromancer',
+            oracle_text: 'Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      // Only fodder, no outlets or payoffs
+      expect(result).toBeNull();
+    });
+
+    it('should detect death trigger payoffs', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Cruel Celebrant',
+            oracle_text: 'Whenever Cruel Celebrant or another creature you control dies, each opponent loses 1 life and you gain 1 life.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Midnight Reaper',
+            oracle_text: 'Whenever a nontoken creature you control dies, draw a card and lose 1 life.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      // Only payoffs, should return null
+      expect(result).toBeNull();
+    });
+
+    it('should detect partial synergy with 2 components', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Viscera Seer',
+            oracle_text: 'Sacrifice a creature: Scry 1.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Blood Artist',
+            oracle_text: 'Whenever another creature dies, target player loses 1 life.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.outlets).toContain('Viscera Seer');
+      expect(result?.payoffs).toContain('Blood Artist');
+      expect(result?.score).toBeGreaterThanOrEqual(5);
+    });
+
+    it('should detect recursion as fodder', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Gravecrawler',
+            oracle_text: 'When Gravecrawler dies, return it to your hand.',
+          }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Murderous Redcap',
+            oracle_text: 'Persist. (When this dies, if it had no -1/-1 counters on it, return it to the battlefield with a -1/-1 counter.)',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      // Should detect recursion/persist as fodder, but no outlets/payoffs
+      expect(result).toBeNull();
+    });
+
+    it('should assign high score for complete aristocrats deck', () => {
+      const fullDeck: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Outlet1', oracle_text: 'Sacrifice a creature: Draw.' }), 4),
+        createDeckCard(createMockCard({ name: 'Outlet2', oracle_text: 'Sacrifice a creature: Scry.' }), 4),
+        createDeckCard(createMockCard({ name: 'Fodder1', oracle_text: 'Create a 1/1 token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Fodder2', oracle_text: 'Create two tokens.' }), 4),
+        createDeckCard(createMockCard({ name: 'Fodder3', oracle_text: 'When this dies, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Payoff1', oracle_text: 'Whenever a creature dies, you gain 1 life.' }), 4),
+        createDeckCard(createMockCard({ name: 'Payoff2', oracle_text: 'Whenever a creature dies, draw a card.' }), 4),
+      ];
+
+      const result = detectSacrificeSynergy(fullDeck);
+
+      expect(result).not.toBeNull();
+      expect(result?.outlets.length).toBe(2);
+      expect(result?.fodder.length).toBe(3);
+      expect(result?.payoffs.length).toBe(2);
+      expect(result?.score).toBe(9); // Full aristocrats deck
+    });
+
+    it('should return null when no synergy exists', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', oracle_text: 'Deal 3 damage.' })),
+        createDeckCard(createMockCard({ name: 'Shock', oracle_text: 'Deal 2 damage.' })),
+      ];
+
+      const result = detectSacrificeSynergy(cards);
+
+      expect(result).toBeNull();
     });
   });
 
