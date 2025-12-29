@@ -19,7 +19,8 @@ import {
   Swords,
   RefreshCw,
   Package,
-  BookMarked
+  BookMarked,
+  GitBranch
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -41,7 +42,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.attackTriggerSynergy !== null ||
     synergies.tapUntapSynergy !== null ||
     synergies.enchantmentArtifactSynergy !== null ||
-    synergies.libraryTopSynergy !== null;
+    synergies.libraryTopSynergy !== null ||
+    synergies.exileZoneSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -541,6 +543,39 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">トップ参照 (Miracle等): </span>
                   {synergies.libraryTopSynergy.topPayoffs.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Exile Zone Synergy */}
+        {synergies.exileZoneSynergy && (
+          <div className="border-l-4 border-l-amber-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <GitBranch className="h-4 w-4 text-amber-500" />
+              <h4 className="font-semibold text-sm">除外ゾーンシナジー</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.exileZoneSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.exileZoneSynergy.blinkEffects.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">ブリンク効果 (Flicker): </span>
+                  {synergies.exileZoneSynergy.blinkEffects.join(', ')}
+                </div>
+              )}
+              {synergies.exileZoneSynergy.exilePayoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">除外参照 (Adventure/Foretell/Escape等): </span>
+                  {synergies.exileZoneSynergy.exilePayoffs.join(', ')}
+                </div>
+              )}
+              {synergies.exileZoneSynergy.exilers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">除外効果: </span>
+                  {synergies.exileZoneSynergy.exilers.join(', ')}
                 </div>
               )}
             </div>

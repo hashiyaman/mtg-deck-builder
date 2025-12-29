@@ -14,6 +14,7 @@ import {
   detectTapUntapSynergy,
   detectEnchantmentArtifactSynergy,
   detectLibraryTopSynergy,
+  detectExileZoneSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1932,6 +1933,124 @@ describe('Synergy Analyzer', () => {
 
       expect(result).not.toBeNull();
       expect(result?.topManipulators).toContain('Jace, the Mind Sculptor');
+    });
+  });
+
+  describe('detectExileZoneSynergy', () => {
+    it('should detect blink effects synergy', () => {
+      const cards: DeckCard[] = [
+        // Blink effects
+        createDeckCard(createMockCard({ name: 'Flickerwisp', oracle_text: 'When Flickerwisp enters, exile another target permanent. Return it to the battlefield under its owner\'s control at the beginning of the next end step.' }), 4),
+        createDeckCard(createMockCard({ name: 'Ephemerate', oracle_text: 'Exile target creature you control, then return it to the battlefield under its owner\'s control.' }), 4),
+        createDeckCard(createMockCard({ name: 'Cloudshift', oracle_text: 'Exile target creature you control, then return that card to the battlefield under your control.' }), 2),
+        // ETB creatures (would benefit from blink)
+        createDeckCard(createMockCard({ name: 'Mulldrifter', oracle_text: 'When Mulldrifter enters, draw two cards.' }), 4),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.blinkEffects).toContain('Flickerwisp');
+      expect(result?.blinkEffects).toContain('Ephemerate');
+      expect(result?.blinkEffects).toContain('Cloudshift');
+      expect(result?.score).toBeGreaterThanOrEqual(7);
+    });
+
+    it('should detect Adventure mechanic as exile payoff', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Brazen Borrower', oracle_text: 'Adventure — Return target nonland permanent to its owner\'s hand.' }), 4),
+        createDeckCard(createMockCard({ name: 'Bonecrusher Giant', oracle_text: 'Adventure — Stomp deals 2 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Murderous Rider', oracle_text: 'Adventure — Destroy target creature or planeswalker.' }), 2),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.exilePayoffs).toContain('Brazen Borrower');
+      expect(result?.exilePayoffs).toContain('Bonecrusher Giant');
+      expect(result?.exilePayoffs).toContain('Murderous Rider');
+    });
+
+    it('should detect Foretell and Escape mechanics', () => {
+      const cards: DeckCard[] = [
+        // Foretell
+        createDeckCard(createMockCard({ name: 'Behold the Multiverse', oracle_text: 'Foretell {1}{U}' }), 4),
+        createDeckCard(createMockCard({ name: 'Saw It Coming', oracle_text: 'Foretell {2}{U}' }), 2),
+        // Escape
+        createDeckCard(createMockCard({ name: 'Uro, Titan of Nature\'s Wrath', oracle_text: 'Escape—{G}{G}{U}{U}, Exile five other cards from your graveyard.' }), 4),
+        createDeckCard(createMockCard({ name: 'Kroxa, Titan of Death\'s Hunger', oracle_text: 'Escape—{B}{B}{R}{R}, Exile five other cards from your graveyard.' }), 2),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.exilePayoffs).toContain('Behold the Multiverse');
+      expect(result?.exilePayoffs).toContain('Uro, Titan of Nature\'s Wrath');
+      expect(result?.exilePayoffs).toContain('Kroxa, Titan of Death\'s Hunger');
+    });
+
+    it('should detect general exile effects', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Swords to Plowshares', oracle_text: 'Exile target creature.' }), 4),
+        createDeckCard(createMockCard({ name: 'Path to Exile', oracle_text: 'Exile target creature. Its controller may search their library for a basic land card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Oblivion Ring', oracle_text: 'When Oblivion Ring enters, exile another target nonland permanent.' }), 2),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.exilers).toContain('Swords to Plowshares');
+      expect(result?.exilers).toContain('Path to Exile');
+      expect(result?.exilers).toContain('Oblivion Ring');
+    });
+
+    it('should assign high score for dedicated blink deck', () => {
+      const cards: DeckCard[] = [
+        // 4+ blink effects
+        createDeckCard(createMockCard({ name: 'Flickerwisp', oracle_text: 'Exile another target permanent. Return it to the battlefield at the beginning of the next end step.' }), 4),
+        createDeckCard(createMockCard({ name: 'Ephemerate', oracle_text: 'Exile target creature you control, then return it to the battlefield.' }), 4),
+        createDeckCard(createMockCard({ name: 'Cloudshift', oracle_text: 'Exile target creature you control, then return that card to the battlefield.' }), 2),
+        createDeckCard(createMockCard({ name: 'Restoration Angel', oracle_text: 'When Restoration Angel enters, you may exile target non-Angel creature you control, then return that card to the battlefield.' }), 4),
+        // ETB creatures
+        createDeckCard(createMockCard({ name: 'Mulldrifter', oracle_text: 'When Mulldrifter enters, draw two cards.' }), 4),
+        createDeckCard(createMockCard({ name: 'Wall of Omens', oracle_text: 'When Wall of Omens enters, draw a card.' }), 2),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.blinkEffects.length).toBeGreaterThanOrEqual(4);
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient exile-related cards', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Swords to Plowshares', oracle_text: 'Exile target creature.' }), 2),
+        // Only 2 exile cards, below threshold
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should distinguish blink effects from general exile', () => {
+      const cards: DeckCard[] = [
+        // Blink (should not count as exiler)
+        createDeckCard(createMockCard({ name: 'Flickerwisp', oracle_text: 'Exile another target permanent. Return it to the battlefield at the beginning of the next end step.' }), 4),
+        // General exile (should count as exiler)
+        createDeckCard(createMockCard({ name: 'Swords to Plowshares', oracle_text: 'Exile target creature. Its controller gains life equal to its power.' }), 4),
+        createDeckCard(createMockCard({ name: 'Path to Exile', oracle_text: 'Exile target creature. Its controller may search their library for a basic land card.' }), 2),
+      ];
+
+      const result = detectExileZoneSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.blinkEffects).toContain('Flickerwisp');
+      expect(result?.blinkEffects).not.toContain('Swords to Plowshares');
+      expect(result?.exilers).toContain('Swords to Plowshares');
+      expect(result?.exilers).toContain('Path to Exile');
+      expect(result?.exilers).not.toContain('Flickerwisp');
     });
   });
 

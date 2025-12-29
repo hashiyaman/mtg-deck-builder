@@ -114,6 +114,13 @@ export interface LibraryTopSynergy {
   score: number; // 1-10
 }
 
+export interface ExileZoneSynergy {
+  exilers: string[]; // Cards that exile
+  exilePayoffs: string[]; // Cards that care about exile zone
+  blinkEffects: string[]; // Temporary exile and return (Blink effects)
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -129,6 +136,7 @@ export interface SynergyAnalysis {
   tapUntapSynergy: TapUntapSynergy | null;
   enchantmentArtifactSynergy: EnchantmentArtifactSynergy | null;
   libraryTopSynergy: LibraryTopSynergy | null;
+  exileZoneSynergy: ExileZoneSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -1272,6 +1280,109 @@ export function detectLibraryTopSynergy(cards: DeckCard[]): LibraryTopSynergy | 
 }
 
 /**
+ * Detects exile zone synergies
+ */
+export function detectExileZoneSynergy(cards: DeckCard[]): ExileZoneSynergy | null {
+  const exilers: string[] = [];
+  const exilePayoffs: string[] = [];
+  const blinkEffects: string[] = [];
+
+  // Exile patterns (general exile effects)
+  const exilePatterns = [
+    /\bexile\b/i, // Cards that exile
+  ];
+
+  // Exile payoff patterns (cards that care about exile zone)
+  const payoffPatterns = [
+    /\badventure\b/i, // Adventure mechanic
+    /\bforetell\b/i, // Foretell mechanic
+    /\bescape\b/i, // Escape mechanic
+    /exile.*you own/i, // Cards that care about exiling cards you own
+    /exile.*opponent/i, // Cards that care about opponent's exile
+    /from exile/i, // Cards that care about exile zone
+    /exiled.*card/i, // Cards that reference exiled cards
+  ];
+
+  // Blink effect patterns (temporary exile and return)
+  const blinkPatterns = [
+    /exile.*until.*end.*turn/i, // Temporary exile until end of turn
+    /exile.*return.*battlefield/i, // Exile and return to battlefield
+    /flicker/i, // Flicker effects
+    /blink/i, // Blink effects (colloquial term)
+  ];
+
+  for (const deckCard of cards) {
+    const card = deckCard.card;
+    const oracle = card.oracle_text || '';
+    const name = card.name;
+
+    // Check for blink effects first (more specific)
+    const hasBlink = blinkPatterns.some((pattern) => pattern.test(oracle));
+    if (hasBlink && !blinkEffects.includes(name)) {
+      blinkEffects.push(name);
+      continue; // Don't count as general exiler
+    }
+
+    // Check for exile payoffs
+    const hasPayoff = payoffPatterns.some((pattern) => pattern.test(oracle));
+    if (hasPayoff && !exilePayoffs.includes(name)) {
+      exilePayoffs.push(name);
+    }
+
+    // Check for general exile effects
+    const hasExile = exilePatterns.some((pattern) => pattern.test(oracle));
+    if (hasExile && !exilers.includes(name) && !blinkEffects.includes(name)) {
+      exilers.push(name);
+    }
+  }
+
+  // Total synergy cards
+  const totalSynergy = exilers.length + exilePayoffs.length + blinkEffects.length;
+
+  // Require at least 3 exile-related cards OR 2+ blink effects with ETB creatures
+  if (totalSynergy < 3 && blinkEffects.length < 2) {
+    return null;
+  }
+
+  // Calculate score (1-10)
+  let score = 4; // Base score
+
+  // Blink synergy scoring (focused strategy)
+  if (blinkEffects.length >= 4) {
+    score = Math.max(score, 8); // Strong blink theme
+  } else if (blinkEffects.length >= 3) {
+    score = Math.max(score, 7); // Solid blink synergy
+  } else if (blinkEffects.length >= 2) {
+    score = Math.max(score, 6); // Moderate blink theme
+  }
+
+  // Exile matters scoring
+  if (exilePayoffs.length >= 8) {
+    score = Math.max(score, 9); // Dedicated exile matters deck
+  } else if (exilePayoffs.length >= 6) {
+    score = Math.max(score, 8); // Strong exile theme
+  } else if (exilePayoffs.length >= 4) {
+    score = Math.max(score, 7); // Solid exile synergy
+  } else if (exilePayoffs.length >= 2) {
+    score = Math.max(score, 6); // Moderate exile theme
+  }
+
+  // General exile effects (removal-based)
+  if (exilers.length >= 10) {
+    score = Math.max(score, 6); // Exile-heavy control
+  } else if (exilers.length >= 6) {
+    score = Math.max(score, 5); // Moderate exile usage
+  }
+
+  return {
+    exilers,
+    exilePayoffs,
+    blinkEffects,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1584,6 +1695,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const tapUntapSynergy = detectTapUntapSynergy(cards);
   const enchantmentArtifactSynergy = detectEnchantmentArtifactSynergy(cards);
   const libraryTopSynergy = detectLibraryTopSynergy(cards);
+  const exileZoneSynergy = detectExileZoneSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1667,6 +1779,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Exile zone synergy
+  if (exileZoneSynergy && exileZoneSynergy.score > 0) {
+    overallScore += exileZoneSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1694,6 +1812,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     tapUntapSynergy,
     enchantmentArtifactSynergy,
     libraryTopSynergy,
+    exileZoneSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

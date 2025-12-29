@@ -347,6 +347,21 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // 除外ゾーンシナジー (Exile Zone Synergies)
+  if (synergyAnalysis.exileZoneSynergy) {
+    const ez = synergyAnalysis.exileZoneSynergy;
+    synergyText += '\n除外ゾーンシナジー (スコア:' + ez.score + '/10):\n';
+    if (ez.blinkEffects.length > 0) {
+      synergyText += `- ブリンク効果 (Flicker): ${ez.blinkEffects.join(', ')}\n`;
+    }
+    if (ez.exilePayoffs.length > 0) {
+      synergyText += `- 除外参照 (Adventure/Foretell/Escape等): ${ez.exilePayoffs.join(', ')}\n`;
+    }
+    if (ez.exilers.length > 0) {
+      synergyText += `- 除外効果: ${ez.exilers.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:
