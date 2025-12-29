@@ -82,6 +82,14 @@ export interface SpellslingerSynergy {
   score: number; // 1-10
 }
 
+export interface AttackTriggerSynergy {
+  attackTriggers: string[]; // Cards with attack triggers
+  raidCards: string[]; // Cards with Raid mechanic
+  enablers: string[]; // Cards that enable attacks (haste, evasion, untap)
+  attackers: number; // Count of creatures
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -93,6 +101,7 @@ export interface SynergyAnalysis {
   sacrificeSynergy: SacrificeSynergy | null;
   manaAccelerationSynergy: ManaAccelerationSynergy | null;
   spellslingerSynergy: SpellslingerSynergy | null;
+  attackTriggerSynergy: AttackTriggerSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -782,6 +791,116 @@ export function detectSpellslingerSynergy(cards: DeckCard[]): SpellslingerSynerg
 }
 
 /**
+ * Detects attack trigger synergies (attack triggers, raid, combat-matters)
+ */
+export function detectAttackTriggerSynergy(cards: DeckCard[]): AttackTriggerSynergy | null {
+  const attackTriggers: string[] = [];
+  const raidCards: string[] = [];
+  const enablers: string[] = [];
+  let attackers = 0;
+
+  // Attack trigger patterns (whenever attacks, when attacks, etc.)
+  const attackTriggerPatterns = [
+    /whenever.*attacks/i,
+    /when.*attacks/i,
+    /whenever.*creature.*attacks/i,
+    /whenever.*attack/i,
+    /battle cry/i,
+  ];
+
+  // Raid mechanic patterns
+  const raidPatterns = [
+    /raid/i,
+    /if you attacked/i,
+  ];
+
+  // Attack enabler patterns (haste, can't be blocked, evasion, untap attackers)
+  const enablerPatterns = [
+    /haste/i,
+    /can't be blocked/i,
+    /unblockable/i,
+    /untap.*creature/i,
+    /untap all creatures/i,
+    /vigilance/i,
+    /extra combat/i,
+    /additional combat/i,
+  ];
+
+  // Evasion keywords that enable attacks
+  const evasionKeywords = ['Flying', 'Menace', 'Trample', 'Unblockable', 'Shadow', 'Horsemanship', 'Fear', 'Intimidate'];
+
+  cards.forEach(({ card, quantity }) => {
+    const oracleText = card.oracle_text || '';
+    const cardName = card.name;
+    const typeLine = card.type_line.toLowerCase();
+    const keywords = card.keywords || [];
+
+    // Count creatures
+    if (typeLine.includes('creature')) {
+      attackers += quantity;
+    }
+
+    // Check for attack triggers
+    if (attackTriggerPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!attackTriggers.includes(cardName)) {
+        attackTriggers.push(cardName);
+      }
+    }
+
+    // Check for Raid
+    if (raidPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!raidCards.includes(cardName)) {
+        raidCards.push(cardName);
+      }
+    }
+
+    // Check for enablers
+    if (enablerPatterns.some((pattern) => pattern.test(oracleText)) ||
+        keywords.some((kw) => evasionKeywords.includes(kw) || kw.toLowerCase() === 'haste' || kw.toLowerCase() === 'vigilance')) {
+      if (!enablers.includes(cardName)) {
+        enablers.push(cardName);
+      }
+    }
+  });
+
+  // Total trigger cards (attack triggers + raid)
+  const totalTriggers = attackTriggers.length + raidCards.length;
+
+  // Need at least some triggers AND a decent number of attackers
+  if (totalTriggers === 0 || attackers < 10) {
+    return null;
+  }
+
+  // Scoring based on trigger density, creature count, and enablers
+  let score = 0;
+
+  if (totalTriggers >= 8 && attackers >= 20 && enablers.length >= 6) {
+    score = 9; // Dedicated attack-matters deck
+  } else if ((totalTriggers >= 6 && attackers >= 18 && enablers.length >= 4) ||
+             (totalTriggers >= 8 && attackers >= 15)) {
+    score = 8; // Strong attack strategy
+  } else if ((totalTriggers >= 5 && attackers >= 15 && enablers.length >= 3) ||
+             (totalTriggers >= 6 && attackers >= 12)) {
+    score = 7; // Good attack synergy
+  } else if ((totalTriggers >= 4 && attackers >= 12) ||
+             (totalTriggers >= 5 && attackers >= 10)) {
+    score = 6; // Moderate attack theme
+  } else if (totalTriggers >= 3 && attackers >= 10) {
+    score = 5; // Light attack theme
+  } else {
+    score = 4; // Minimal attack synergy
+  }
+
+  return {
+    attackTriggers,
+    raidCards,
+    enablers,
+    attackers,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1090,6 +1209,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const sacrificeSynergy = detectSacrificeSynergy(cards);
   const manaAccelerationSynergy = detectManaAccelerationSynergy(cards);
   const spellslingerSynergy = detectSpellslingerSynergy(cards);
+  const attackTriggerSynergy = detectAttackTriggerSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1149,6 +1269,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Attack trigger synergy
+  if (attackTriggerSynergy && attackTriggerSynergy.score > 0) {
+    overallScore += attackTriggerSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1172,6 +1298,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     sacrificeSynergy,
     manaAccelerationSynergy,
     spellslingerSynergy,
+    attackTriggerSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

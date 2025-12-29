@@ -282,6 +282,22 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // 攻撃トリガーシナジー (Attack Triggers)
+  if (synergyAnalysis.attackTriggerSynergy) {
+    const at = synergyAnalysis.attackTriggerSynergy;
+    synergyText += '\n攻撃トリガーシナジー (攻撃誘発型) (スコア:' + at.score + '/10):\n';
+    synergyText += `- アタッカー数: ${at.attackers}体\n`;
+    if (at.attackTriggers.length > 0) {
+      synergyText += `- 攻撃トリガー: ${at.attackTriggers.join(', ')}\n`;
+    }
+    if (at.raidCards.length > 0) {
+      synergyText += `- Raidカード: ${at.raidCards.join(', ')}\n`;
+    }
+    if (at.enablers.length > 0) {
+      synergyText += `- 攻撃補助 (速攻/回避/追加戦闘): ${at.enablers.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

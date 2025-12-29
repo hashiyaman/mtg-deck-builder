@@ -15,7 +15,8 @@ import {
   Target,
   Heart,
   TreeDeciduous,
-  Wand2
+  Wand2,
+  Swords
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -33,7 +34,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.thresholdSynergies.length > 0 ||
     synergies.sacrificeSynergy !== null ||
     synergies.manaAccelerationSynergy !== null ||
-    synergies.spellslingerSynergy !== null;
+    synergies.spellslingerSynergy !== null ||
+    synergies.attackTriggerSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -385,6 +387,43 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">コスト軽減: </span>
                   {synergies.spellslingerSynergy.costReduction.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Attack Trigger Synergy */}
+        {synergies.attackTriggerSynergy && (
+          <div className="border-l-4 border-l-orange-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Swords className="h-4 w-4 text-orange-500" />
+              <h4 className="font-semibold text-sm">攻撃トリガー（攻撃誘発）</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.attackTriggerSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="text-xs">
+                <span className="text-muted-foreground">アタッカー数: </span>
+                {synergies.attackTriggerSynergy.attackers}体
+              </div>
+              {synergies.attackTriggerSynergy.attackTriggers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">攻撃トリガー: </span>
+                  {synergies.attackTriggerSynergy.attackTriggers.join(', ')}
+                </div>
+              )}
+              {synergies.attackTriggerSynergy.raidCards.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Raid: </span>
+                  {synergies.attackTriggerSynergy.raidCards.join(', ')}
+                </div>
+              )}
+              {synergies.attackTriggerSynergy.enablers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">攻撃補助: </span>
+                  {synergies.attackTriggerSynergy.enablers.join(', ')}
                 </div>
               )}
             </div>

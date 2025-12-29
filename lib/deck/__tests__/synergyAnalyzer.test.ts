@@ -10,6 +10,7 @@ import {
   detectSacrificeSynergy,
   detectManaAccelerationSynergy,
   detectSpellslingerSynergy,
+  detectAttackTriggerSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1317,6 +1318,209 @@ describe('Synergy Analyzer', () => {
       ];
 
       const result = detectSpellslingerSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectAttackTriggerSynergy', () => {
+    it('should detect full attack-matters strategy with all components', () => {
+      const cards: DeckCard[] = [
+        // Attack triggers
+        createDeckCard(createMockCard({ name: 'Aurelia, the Warleader', oracle_text: 'Whenever Aurelia attacks for the first time each turn, untap all creatures you control.' }), 1),
+        createDeckCard(createMockCard({ name: 'Brutal Hordechief', oracle_text: 'Whenever a creature you control attacks, defending player loses 1 life.' }), 2),
+        createDeckCard(createMockCard({ name: 'Accorder Paladin', oracle_text: 'Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0)' }), 4),
+        // Raid cards
+        createDeckCard(createMockCard({ name: 'Raid Bombardment', oracle_text: 'Raid — If you attacked this turn, deal 1 damage to any target.' }), 2),
+        createDeckCard(createMockCard({ name: 'Lightning Strike', oracle_text: 'Raid — If you attacked this turn, this spell costs {1} less to cast.' }), 4),
+        // Enablers - Haste
+        createDeckCard(createMockCard({ name: 'Fervor', oracle_text: 'Creatures you control have haste.' }), 2),
+        createDeckCard(createMockCard({ name: 'Swiftblade Vindicator', type_line: 'Creature', keywords: ['Haste', 'Vigilance'] }), 4),
+        // Enablers - Evasion
+        createDeckCard(createMockCard({ name: 'Thundermaw Hellkite', type_line: 'Creature', keywords: ['Flying', 'Haste'] }), 2),
+        createDeckCard(createMockCard({ name: 'Memnite', type_line: 'Creature', keywords: ['Menace'] }), 4),
+        // Regular attackers (20+ creatures total)
+        createDeckCard(createMockCard({ name: 'Savannah Lions', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Elite Vanguard', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 8),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.attackTriggers).toContain('Aurelia, the Warleader');
+      expect(result?.attackTriggers).toContain('Brutal Hordechief');
+      expect(result?.attackTriggers).toContain('Accorder Paladin');
+      expect(result?.raidCards).toContain('Raid Bombardment');
+      expect(result?.raidCards).toContain('Lightning Strike');
+      expect(result?.enablers).toContain('Fervor');
+      expect(result?.enablers).toContain('Swiftblade Vindicator');
+      expect(result?.attackers).toBeGreaterThanOrEqual(20);
+      expect(result?.score).toBeGreaterThanOrEqual(7);
+    });
+
+    it('should detect attack triggers with whenever attacks pattern', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a 1/1 Cat Soldier token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Hero of Bladehold', oracle_text: 'When Hero of Bladehold attacks, create two 1/1 Soldier tokens.' }), 2),
+        createDeckCard(createMockCard({ name: 'Grizzly Bears', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Savannah Lions', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Elite Vanguard', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.attackTriggers).toContain('Brimaz');
+      expect(result?.attackTriggers).toContain('Hero of Bladehold');
+      expect(result?.attackers).toBe(22);
+    });
+
+    it('should detect raid mechanic', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Mardu Charm', oracle_text: 'Raid — If you attacked this turn, create a 2/1 Warrior token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Goblin Heelcutter', oracle_text: 'Raid — When this enters, if you attacked this turn, target creature can\'t block.' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Warrior Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.raidCards).toContain('Mardu Charm');
+      expect(result?.raidCards).toContain('Goblin Heelcutter');
+      expect(result?.attackers).toBe(20);
+    });
+
+    it('should detect haste enablers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Fervor', oracle_text: 'Creatures you control have haste.' }), 2),
+        createDeckCard(createMockCard({ name: 'Urabrask', oracle_text: 'Creatures you control have haste.' }), 1),
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enablers).toContain('Fervor');
+      expect(result?.enablers).toContain('Urabrask');
+    });
+
+    it('should detect evasion keywords as enablers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Serra Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 4),
+        createDeckCard(createMockCard({ name: 'Skyhunter Skirmisher', type_line: 'Creature', keywords: ['Flying', 'Double strike'] }), 2),
+        createDeckCard(createMockCard({ name: 'Goblin Piker', type_line: 'Creature', keywords: ['Menace'] }), 4),
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enablers).toContain('Serra Angel');
+      expect(result?.enablers).toContain('Skyhunter Skirmisher');
+      expect(result?.enablers).toContain('Goblin Piker');
+    });
+
+    it('should detect extra combat enablers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Aurelia', oracle_text: 'Whenever Aurelia attacks, untap all creatures. You get an additional combat phase.' }), 1),
+        createDeckCard(createMockCard({ name: 'Aggravated Assault', oracle_text: 'Pay {3}{R}{R}: Untap all creatures. After this phase, there is an additional combat phase.' }), 1),
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enablers).toContain('Aurelia');
+      expect(result?.enablers).toContain('Aggravated Assault');
+    });
+
+    it('should detect vigilance as enabler', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Serra Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 4),
+        createDeckCard(createMockCard({ name: 'Always Watching', oracle_text: 'Creatures you control have vigilance.' }), 2),
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enablers).toContain('Serra Angel');
+      expect(result?.enablers).toContain('Always Watching');
+    });
+
+    it('should detect battle cry as attack trigger', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Accorder Paladin', oracle_text: 'Battle cry (Whenever this attacks, each other attacking creature gets +1/+0)' }), 4),
+        createDeckCard(createMockCard({ name: 'Hero of Bladehold', oracle_text: 'Battle cry' }), 2),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Knight Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.attackTriggers).toContain('Accorder Paladin');
+      expect(result?.attackTriggers).toContain('Hero of Bladehold');
+    });
+
+    it('should assign high score for dedicated attack-matters deck', () => {
+      const cards: DeckCard[] = [
+        // 8+ attack triggers
+        createDeckCard(createMockCard({ name: 'Aurelia', oracle_text: 'Whenever Aurelia attacks, untap all creatures.' }), 1),
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Hero of Bladehold', oracle_text: 'When Hero attacks, create two tokens.' }), 2),
+        createDeckCard(createMockCard({ name: 'Brutal Hordechief', oracle_text: 'Whenever a creature you control attacks, opponent loses 1 life.' }), 2),
+        createDeckCard(createMockCard({ name: 'Mardu Charm', oracle_text: 'Raid — If you attacked, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Lightning Strike', oracle_text: 'Raid — If you attacked, this costs {1} less.' }), 4),
+        // 6+ enablers
+        createDeckCard(createMockCard({ name: 'Fervor', oracle_text: 'Creatures have haste.' }), 2),
+        createDeckCard(createMockCard({ name: 'Always Watching', oracle_text: 'Creatures have vigilance.' }), 2),
+        createDeckCard(createMockCard({ name: 'Serra Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 4),
+        createDeckCard(createMockCard({ name: 'Thundermaw', type_line: 'Creature', keywords: ['Flying', 'Haste'] }), 2),
+        // 20+ attackers
+        createDeckCard(createMockCard({ name: 'Savannah Lions', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Elite Vanguard', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Soldier Token', type_line: 'Creature' }), 4),
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient creatures', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Brimaz', oracle_text: 'Whenever Brimaz attacks, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Hero of Bladehold', oracle_text: 'When Hero attacks, create tokens.' }), 2),
+        // Only 6 creatures, below threshold of 10
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no attack triggers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Grizzly Bears', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Savannah Lions', type_line: 'Creature' }), 4),
+        createDeckCard(createMockCard({ name: 'Elite Vanguard', type_line: 'Creature' }), 4),
+        // 12 creatures but no attack triggers
+      ];
+
+      const result = detectAttackTriggerSynergy(cards);
 
       expect(result).toBeNull();
     });
