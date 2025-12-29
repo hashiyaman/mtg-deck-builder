@@ -309,6 +309,7 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
                 }
                 onRemove={(cardId) => removeCard(cardId, 'mainboard')}
                 onCardClick={(card) => selectCard(card)}
+                synergies={synergies}
               />
             </TabsContent>
             <TabsContent value="sideboard" className="mt-4">
@@ -319,6 +320,7 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
                 }
                 onRemove={(cardId) => removeCard(cardId, 'sideboard')}
                 onCardClick={(card) => selectCard(card)}
+                synergies={synergies}
               />
             </TabsContent>
           </Tabs>
@@ -341,7 +343,7 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
               <ColorDistribution data={stats.colorDistribution} />
             </>
           )}
-          {synergies && <SynergyAnalysis synergies={synergies} />}
+          {synergies && <SynergyAnalysis synergies={synergies} cards={currentDeck.mainboard} />}
         </div>
       </div>
 

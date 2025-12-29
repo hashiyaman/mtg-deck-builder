@@ -3,6 +3,7 @@
 import { useState, useEffect, memo, useMemo } from 'react';
 import { DeckCard } from '@/types/deck';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ManaCost } from '@/components/cards/ManaSymbol';
 import {
   Collapsible,
@@ -26,17 +27,19 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { groupCardsByType } from '@/lib/utils/cardTypeUtils';
-import { Minus, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Minus, Plus, X, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import Image from 'next/image';
+import { analyzeCardSynergies, SynergyAnalysis } from '@/lib/deck/synergyAnalyzer';
 
 interface DeckCardListProps {
   cards: DeckCard[];
   onQuantityChange: (cardId: string, newQuantity: number) => void;
   onRemove: (cardId: string) => void;
   onCardClick?: (card: DeckCard['card']) => void;
+  synergies?: SynergyAnalysis | null;
 }
 
-export const DeckCardList = memo(function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }: DeckCardListProps) {
+export const DeckCardList = memo(function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick, synergies }: DeckCardListProps) {
   // 各カードタイプの開閉状態を管理（デフォルトは全て開く）
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   // Confirmation dialog state
@@ -145,6 +148,64 @@ export const DeckCardList = memo(function DeckCardList({ cards, onQuantityChange
                       >
                         <h4 className="font-medium truncate">{displayName}</h4>
                         <p className="text-sm text-muted-foreground truncate">{displayTypeLine}</p>
+
+                        {/* Synergy Badges */}
+                        {synergies && (() => {
+                          const cardSynergy = analyzeCardSynergies(card, cards, synergies);
+                          if (cardSynergy.synergies.length === 0) return null;
+
+                          return (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {cardSynergy.synergies.slice(0, 2).map((syn, index) => (
+                                <Tooltip key={index}>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-1 py-0 h-5 cursor-help"
+                                    >
+                                      <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                                      {syn.role}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      <p className="font-semibold">{syn.category}</p>
+                                      <p className="text-xs">{syn.description}</p>
+                                      {cardSynergy.relatedCards.length > 0 && (
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                          相性: {cardSynergy.relatedCards.slice(0, 3).join(', ')}
+                                          {cardSynergy.relatedCards.length > 3 && ` 他${cardSynergy.relatedCards.length - 3}枚`}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                              {cardSynergy.synergies.length > 2 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs px-1 py-0 h-5 cursor-help"
+                                    >
+                                      +{cardSynergy.synergies.length - 2}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {cardSynergy.synergies.slice(2).map((syn, index) => (
+                                        <div key={index}>
+                                          <p className="font-semibold text-xs">{syn.category}</p>
+                                          <p className="text-xs text-muted-foreground">{syn.role}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Mana Cost */}

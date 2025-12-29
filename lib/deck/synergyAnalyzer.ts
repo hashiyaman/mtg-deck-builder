@@ -1,6 +1,13 @@
 import { DeckCard } from '@/types/deck';
 import { Card } from '@/types/card';
 
+/**
+ * Get the display name for a card, preferring the Japanese name if available
+ */
+function getCardDisplayName(card: Card): string {
+  return card.printed_name || card.name;
+}
+
 export interface TribalSynergy {
   type: string;
   count: number;
@@ -121,6 +128,69 @@ export interface ExileZoneSynergy {
   score: number; // 1-10
 }
 
+export interface ETBSynergy {
+  etbTriggers: string[]; // Cards with "enters the battlefield" triggers
+  blinkEffects: string[]; // Temporary exile and return (Flicker effects)
+  reanimation: string[]; // Cards that put creatures from graveyard to battlefield
+  cheatIntoPlay: string[]; // Cards that put cards into play (Show and Tell, etc.)
+  clones: string[]; // Clone effects that copy ETB triggers
+  panEffects: string[]; // Creature generators (Tokens, creature spells)
+  score: number; // 1-10
+}
+
+export interface LandfallSynergy {
+  landfallTriggers: string[]; // Cards with landfall triggers
+  landRamp: string[]; // Cards that put lands onto battlefield
+  extraLandPlays: string[]; // Cards that allow additional land plays
+  landCount: number; // Total lands in deck
+  score: number; // 1-10
+}
+
+export interface EnergySynergy {
+  energyProducers: string[]; // Cards that generate energy counters
+  energyPayoffs: string[]; // Cards that spend energy counters
+  score: number; // 1-10
+}
+
+export interface TreasureSynergy {
+  treasureProducers: string[]; // Cards that create treasure tokens
+  treasurePayoffs: string[]; // Cards that care about artifacts/sacrificing
+  score: number; // 1-10
+}
+
+export interface StormSynergy {
+  stormCards: string[]; // Cards with storm mechanic
+  rituals: string[]; // Mana rituals (Dark Ritual, etc.)
+  cantrips: string[]; // Cheap card draw spells
+  costReduction: string[]; // Cost reduction for spells
+  instantsAndSorceries: number; // Count of instant/sorcery cards
+  score: number; // 1-10
+}
+
+export interface EquipmentAuraSynergy {
+  equipments: string[]; // Equipment cards
+  auras: string[]; // Aura cards
+  equipmentPayoffs: string[]; // Cards that care about equipped creatures
+  auraPayoffs: string[]; // Cards that care about enchanted creatures
+  equipmentEnablers: string[]; // Cards that reduce equip costs or auto-attach
+  hexproofCreatures: string[]; // Hexproof/shroud creatures (good aura targets)
+  score: number; // 1-10
+}
+
+export interface LifegainSynergy {
+  lifegainTriggers: string[]; // Cards that trigger on lifegain
+  lifegainSources: string[]; // Cards that gain life
+  lifelinkCreatures: string[]; // Creatures with lifelink
+  score: number; // 1-10
+}
+
+export interface FoodSynergy {
+  foodProducers: string[]; // Cards that create food tokens
+  foodPayoffs: string[]; // Cards that care about food/artifacts
+  sacrificeOutlets: string[]; // Cards that sacrifice artifacts
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -137,6 +207,14 @@ export interface SynergyAnalysis {
   enchantmentArtifactSynergy: EnchantmentArtifactSynergy | null;
   libraryTopSynergy: LibraryTopSynergy | null;
   exileZoneSynergy: ExileZoneSynergy | null;
+  etbSynergy: ETBSynergy | null;
+  landfallSynergy: LandfallSynergy | null;
+  energySynergy: EnergySynergy | null;
+  treasureSynergy: TreasureSynergy | null;
+  stormSynergy: StormSynergy | null;
+  equipmentAuraSynergy: EquipmentAuraSynergy | null;
+  lifegainSynergy: LifegainSynergy | null;
+  foodSynergy: FoodSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -169,8 +247,9 @@ export function detectTribalSynergy(cards: DeckCard[]): TribalSynergy[] {
     types.forEach((type) => {
       const existing = typeCount.get(type) || { count: 0, cards: [] };
       existing.count += quantity;
-      if (!existing.cards.includes(card.name)) {
-        existing.cards.push(card.name);
+      const cardName = getCardDisplayName(card);
+      if (!existing.cards.includes(cardName)) {
+        existing.cards.push(cardName);
       }
       typeCount.set(type, existing);
     });
@@ -224,7 +303,7 @@ export function detectTokenSynergy(cards: DeckCard[]): TokenSynergy | null {
 
   cards.forEach(({ card }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
 
     // Check for token producers
     if (producerPatterns.some((pattern) => pattern.test(oracleText))) {
@@ -290,7 +369,7 @@ export function detectGraveyardSynergy(cards: DeckCard[]): GraveyardSynergy | nu
 
   cards.forEach(({ card }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
 
     // Check for graveyard fillers
     if (fillerPatterns.some((pattern) => pattern.test(oracleText))) {
@@ -345,7 +424,7 @@ export function detectCounterSynergy(cards: DeckCard[]): CounterSynergy | null {
 
   cards.forEach(({ card }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
 
     // Check for counter cards
     if (counterPatterns.some((pattern) => pattern.test(oracleText))) {
@@ -405,7 +484,7 @@ export function detectKeywordClusters(cards: DeckCard[]): KeywordCluster[] {
 
   cards.forEach(({ card, quantity }) => {
     const keywords = card.keywords || [];
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
 
     keywords.forEach((keyword) => {
       // Only track important keywords
@@ -467,7 +546,7 @@ export function detectSacrificeSynergy(cards: DeckCard[]): SacrificeSynergy | nu
 
   cards.forEach(({ card }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
 
     // Check for sacrifice outlets
     if (outletPatterns.some((pattern) => pattern.test(oracleText))) {
@@ -578,7 +657,7 @@ export function detectManaAccelerationSynergy(cards: DeckCard[]): ManaAccelerati
 
   cards.forEach(({ card, quantity }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
     const typeLine = card.type_line.toLowerCase();
     const cmc = card.cmc || 0;
 
@@ -729,7 +808,7 @@ export function detectSpellslingerSynergy(cards: DeckCard[]): SpellslingerSynerg
 
   cards.forEach(({ card, quantity }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
     const typeLine = card.type_line.toLowerCase();
     const keywords = card.keywords || [];
 
@@ -866,7 +945,7 @@ export function detectAttackTriggerSynergy(cards: DeckCard[]): AttackTriggerSyne
 
   cards.forEach(({ card, quantity }) => {
     const oracleText = card.oracle_text || '';
-    const cardName = card.name;
+    const cardName = getCardDisplayName(card);
     const typeLine = card.type_line.toLowerCase();
     const keywords = card.keywords || [];
 
@@ -989,7 +1068,7 @@ export function detectTapUntapSynergy(cards: DeckCard[]): TapUntapSynergy | null
   for (const deckCard of cards) {
     const card = deckCard.card;
     const oracle = card.oracle_text || '';
-    const name = card.name;
+    const name = getCardDisplayName(card);
 
     // Check for tap abilities (excluding pure mana abilities)
     const hasTapAbility = tapAbilityPatterns.some((pattern) => pattern.test(oracle));
@@ -1113,7 +1192,7 @@ export function detectEnchantmentArtifactSynergy(cards: DeckCard[]): Enchantment
   for (const deckCard of cards) {
     const card = deckCard.card;
     const oracle = card.oracle_text || '';
-    const name = card.name;
+    const name = getCardDisplayName(card);
     const typeLine = card.type_line || '';
 
     // Count enchantments and artifacts
@@ -1235,7 +1314,7 @@ export function detectLibraryTopSynergy(cards: DeckCard[]): LibraryTopSynergy | 
   for (const deckCard of cards) {
     const card = deckCard.card;
     const oracle = card.oracle_text || '';
-    const name = card.name;
+    const name = getCardDisplayName(card);
 
     // Check for top manipulators
     const isManipulator = manipulatorPatterns.some((pattern) => pattern.test(oracle));
@@ -1314,7 +1393,7 @@ export function detectExileZoneSynergy(cards: DeckCard[]): ExileZoneSynergy | nu
   for (const deckCard of cards) {
     const card = deckCard.card;
     const oracle = card.oracle_text || '';
-    const name = card.name;
+    const name = getCardDisplayName(card);
 
     // Check for blink effects first (more specific)
     const hasBlink = blinkPatterns.some((pattern) => pattern.test(oracle));
@@ -1383,6 +1462,665 @@ export function detectExileZoneSynergy(cards: DeckCard[]): ExileZoneSynergy | nu
 }
 
 /**
+ * Detects ETB (Enter the Battlefield) synergies
+ * Looks for ETB triggers and cards that enable reusing them (blink, reanimate, etc.)
+ */
+export function detectETBSynergy(cards: DeckCard[]): ETBSynergy | null {
+  const etbTriggers: string[] = [];
+  const blinkEffects: string[] = [];
+  const reanimation: string[] = [];
+  const cheatIntoPlay: string[] = [];
+  const clones: string[] = [];
+  const panEffects: string[] = [];
+
+  // ETB trigger patterns
+  const etbPatterns = [
+    /when.*enters.*battlefield/i,
+    /enters.*battlefield.*trigger/i,
+    /enters.*battlefield.*you/i,
+    /when.*enters/i,
+  ];
+
+  // Blink effect patterns (temporary exile and return)
+  const blinkPatterns = [
+    /exile.*until.*end.*turn/i, // Temporary exile until end of turn
+    /exile.*return.*battlefield/i, // Exile and return to battlefield
+    /exile.*return.*at.*beginning/i, // Exile and return at beginning
+    /flicker/i, // Flicker effects
+    /blink/i, // Blink effects (colloquial term)
+    /exile.*return.*under/i, // Exile and return under control
+  ];
+
+  // Reanimation patterns (graveyard to battlefield)
+  const reanimationPatterns = [
+    /return.*creature.*from.*graveyard.*battlefield/i,
+    /return.*graveyard.*battlefield/i,
+    /put.*creature.*from.*graveyard.*battlefield/i,
+    /reanimate/i,
+    /unearth/i,
+    /return.*target.*creature.*battlefield/i,
+  ];
+
+  // Cheat into play patterns (put cards directly into play)
+  const cheatPatterns = [
+    /put.*onto.*battlefield/i,
+    /put.*into.*play/i,
+    /show and tell/i,
+    /sneak attack/i,
+    /through the breach/i,
+    /aether vial/i,
+  ];
+
+  // Clone patterns (copy creatures, usually getting ETB triggers)
+  const clonePatterns = [
+    /copy.*creature/i,
+    /clone/i,
+    /may have.*copy/i,
+    /enter.*copy/i,
+    /as a copy/i,
+  ];
+
+  // Pan effects (repeatedly create creatures/permanents)
+  const panPatterns = [
+    /create.*token/i,
+    /put.*token.*onto.*battlefield/i,
+  ];
+
+  for (const deckCard of cards) {
+    const card = deckCard.card;
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+    const typeLine = card.type_line.toLowerCase();
+
+    // Check for ETB triggers
+    const hasETB = etbPatterns.some((pattern) => pattern.test(oracle));
+    if (hasETB && !etbTriggers.includes(name)) {
+      etbTriggers.push(name);
+    }
+
+    // Check for blink effects
+    const hasBlink = blinkPatterns.some((pattern) => pattern.test(oracle));
+    if (hasBlink && !blinkEffects.includes(name)) {
+      blinkEffects.push(name);
+    }
+
+    // Check for reanimation
+    const hasReanimate = reanimationPatterns.some((pattern) => pattern.test(oracle));
+    if (hasReanimate && !reanimation.includes(name)) {
+      reanimation.push(name);
+    }
+
+    // Check for cheat into play
+    const hasCheat = cheatPatterns.some((pattern) => pattern.test(oracle));
+    if (hasCheat && !cheatIntoPlay.includes(name)) {
+      cheatIntoPlay.push(name);
+    }
+
+    // Check for clones
+    const hasClone = clonePatterns.some((pattern) => pattern.test(oracle));
+    if (hasClone && !clones.includes(name)) {
+      clones.push(name);
+    }
+
+    // Check for pan effects (creature generators)
+    const hasPan = panPatterns.some((pattern) => pattern.test(oracle));
+    if (hasPan && !panEffects.includes(name)) {
+      panEffects.push(name);
+    }
+  }
+
+  // Total enablers (cards that reuse ETB triggers)
+  const totalEnablers = blinkEffects.length + reanimation.length +
+                       cheatIntoPlay.length + clones.length;
+
+  // Require at least 3 ETB triggers AND at least 2 enablers
+  if (etbTriggers.length < 3 || totalEnablers < 2) {
+    return null;
+  }
+
+  // Calculate score (1-10)
+  let score = 4; // Base score
+
+  // Strong ETB-focused deck
+  if (etbTriggers.length >= 12 && totalEnablers >= 6) {
+    score = 9; // Dedicated ETB deck
+  } else if (etbTriggers.length >= 10 && totalEnablers >= 5) {
+    score = 8; // Strong ETB strategy
+  } else if (etbTriggers.length >= 8 && totalEnablers >= 4) {
+    score = 7; // Solid ETB synergy
+  } else if (etbTriggers.length >= 6 && totalEnablers >= 3) {
+    score = 6; // Moderate ETB theme
+  } else if (etbTriggers.length >= 4 && totalEnablers >= 2) {
+    score = 5; // Light ETB synergy
+  }
+
+  // Bonus for blink-heavy strategies (repeatable ETB abuse)
+  if (blinkEffects.length >= 4 && etbTriggers.length >= 6) {
+    score = Math.max(score, 8); // Dedicated blink deck
+  } else if (blinkEffects.length >= 3 && etbTriggers.length >= 4) {
+    score = Math.max(score, 7); // Strong blink synergy
+  }
+
+  // Bonus for reanimator strategies
+  if (reanimation.length >= 4 && etbTriggers.length >= 6) {
+    score = Math.max(score, 8); // Dedicated reanimator
+  } else if (reanimation.length >= 3 && etbTriggers.length >= 4) {
+    score = Math.max(score, 7); // Strong reanimator
+  }
+
+  return {
+    etbTriggers,
+    blinkEffects,
+    reanimation,
+    cheatIntoPlay,
+    clones,
+    panEffects,
+    score,
+  };
+}
+
+/**
+ * Detects Landfall synergies (triggers when lands enter the battlefield)
+ */
+export function detectLandfallSynergy(cards: DeckCard[]): LandfallSynergy | null {
+  const landfallTriggers: string[] = [];
+  const landRamp: string[] = [];
+  const extraLandPlays: string[] = [];
+  let landCount = 0;
+
+  // Landfall trigger patterns
+  const landfallPatterns = [
+    /landfall/i,
+    /whenever.*land enters/i,
+    /when.*land enters/i,
+    /whenever.*land.*battlefield/i,
+  ];
+
+  // Land ramp patterns (put lands onto battlefield)
+  const rampPatterns = [
+    /search.*library.*land.*battlefield/i,
+    /put.*land.*battlefield/i,
+    /rampant growth/i,
+    /cultivate/i,
+    /kodama's reach/i,
+  ];
+
+  // Extra land play patterns
+  const extraLandPatterns = [
+    /play.*additional.*land/i,
+    /play.*extra.*land/i,
+    /play.*more.*land/i,
+    /land.*each turn/i,
+  ];
+
+  cards.forEach(({ card, quantity }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+    const typeLine = card.type_line.toLowerCase();
+
+    // Count lands
+    if (typeLine.includes('land')) {
+      landCount += quantity;
+    }
+
+    // Check for landfall triggers
+    if (landfallPatterns.some((pattern) => pattern.test(oracle))) {
+      if (!landfallTriggers.includes(name)) {
+        landfallTriggers.push(name);
+      }
+    }
+
+    // Check for land ramp
+    if (rampPatterns.some((pattern) => pattern.test(oracle))) {
+      if (!landRamp.includes(name)) {
+        landRamp.push(name);
+      }
+    }
+
+    // Check for extra land plays
+    if (extraLandPatterns.some((pattern) => pattern.test(oracle))) {
+      if (!extraLandPlays.includes(name)) {
+        extraLandPlays.push(name);
+      }
+    }
+  });
+
+  // Require at least 2 landfall triggers OR (1 trigger + 3+ enablers)
+  const totalEnablers = landRamp.length + extraLandPlays.length;
+  if (landfallTriggers.length < 1 || (landfallTriggers.length < 2 && totalEnablers < 3)) {
+    return null;
+  }
+
+  // Calculate score
+  let score = 4;
+
+  if (landfallTriggers.length >= 8 && totalEnablers >= 6) {
+    score = 9; // Dedicated landfall deck
+  } else if (landfallTriggers.length >= 6 && totalEnablers >= 5) {
+    score = 8;
+  } else if (landfallTriggers.length >= 4 && totalEnablers >= 4) {
+    score = 7;
+  } else if (landfallTriggers.length >= 3 && totalEnablers >= 3) {
+    score = 6;
+  } else if (landfallTriggers.length >= 2) {
+    score = 5;
+  }
+
+  return {
+    landfallTriggers,
+    landRamp,
+    extraLandPlays,
+    landCount,
+    score,
+  };
+}
+
+/**
+ * Detects Energy counter synergies
+ */
+export function detectEnergySynergy(cards: DeckCard[]): EnergySynergy | null {
+  const energyProducers: string[] = [];
+  const energyPayoffs: string[] = [];
+
+  cards.forEach(({ card }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+
+    // Check for energy production
+    if (/get.*energy counter/i.test(oracle) || /energy counter.*you/i.test(oracle)) {
+      if (!energyProducers.includes(name)) {
+        energyProducers.push(name);
+      }
+    }
+
+    // Check for energy spending
+    if (/pay.*{e}/i.test(oracle) || /spend.*energy/i.test(oracle)) {
+      if (!energyPayoffs.includes(name)) {
+        energyPayoffs.push(name);
+      }
+    }
+  });
+
+  // Require at least 3 energy producers AND 2 payoffs
+  if (energyProducers.length < 3 || energyPayoffs.length < 2) {
+    return null;
+  }
+
+  let score = 5;
+  if (energyProducers.length >= 10 && energyPayoffs.length >= 6) {
+    score = 9;
+  } else if (energyProducers.length >= 8 && energyPayoffs.length >= 5) {
+    score = 8;
+  } else if (energyProducers.length >= 6 && energyPayoffs.length >= 4) {
+    score = 7;
+  } else if (energyProducers.length >= 5 && energyPayoffs.length >= 3) {
+    score = 6;
+  }
+
+  return {
+    energyProducers,
+    energyPayoffs,
+    score,
+  };
+}
+
+/**
+ * Detects Treasure token synergies
+ */
+export function detectTreasureSynergy(cards: DeckCard[]): TreasureSynergy | null {
+  const treasureProducers: string[] = [];
+  const treasurePayoffs: string[] = [];
+
+  cards.forEach(({ card }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+
+    // Check for treasure production
+    if (/create.*treasure/i.test(oracle) || /treasure token/i.test(oracle)) {
+      if (!treasureProducers.includes(name)) {
+        treasureProducers.push(name);
+      }
+    }
+
+    // Check for treasure/artifact payoffs (cards that care about artifacts or sacrifice)
+    if (/whenever.*artifact/i.test(oracle) ||
+        /sacrifice.*artifact/i.test(oracle) ||
+        /artifact.*enter/i.test(oracle)) {
+      if (!treasurePayoffs.includes(name)) {
+        treasurePayoffs.push(name);
+      }
+    }
+  });
+
+  // Require at least 3 treasure producers
+  if (treasureProducers.length < 3) {
+    return null;
+  }
+
+  let score = 5;
+  if (treasureProducers.length >= 8 && treasurePayoffs.length >= 4) {
+    score = 8;
+  } else if (treasureProducers.length >= 6 && treasurePayoffs.length >= 3) {
+    score = 7;
+  } else if (treasureProducers.length >= 5) {
+    score = 6;
+  }
+
+  return {
+    treasureProducers,
+    treasurePayoffs,
+    score,
+  };
+}
+
+/**
+ * Detects Storm/spell chain synergies
+ */
+export function detectStormSynergy(cards: DeckCard[]): StormSynergy | null {
+  const stormCards: string[] = [];
+  const rituals: string[] = [];
+  const cantrips: string[] = [];
+  const costReduction: string[] = [];
+  let instantsAndSorceries = 0;
+
+  // Ritual patterns (cards that generate mana)
+  const ritualPatterns = [
+    /add.*{r}{r}{r}/i,
+    /add.*{b}{b}{b}/i,
+    /dark ritual/i,
+    /desperate ritual/i,
+    /pyretic ritual/i,
+    /seething song/i,
+  ];
+
+  // Cantrip patterns (cheap draw spells)
+  const cantripPatterns = [
+    /draw.*card/i,
+  ];
+
+  // Cost reduction patterns
+  const costReductionPatterns = [
+    /cost.*less/i,
+    /reduce.*cost/i,
+    /this spell costs/i,
+  ];
+
+  cards.forEach(({ card, quantity }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+    const typeLine = card.type_line.toLowerCase();
+    const keywords = card.keywords || [];
+    const cmc = card.cmc || 0;
+
+    // Count instants and sorceries
+    if (typeLine.includes('instant') || typeLine.includes('sorcery')) {
+      instantsAndSorceries += quantity;
+    }
+
+    // Check for storm mechanic
+    if (keywords.some((kw) => kw.toLowerCase() === 'storm')) {
+      if (!stormCards.includes(name)) {
+        stormCards.push(name);
+      }
+    }
+
+    // Check for rituals
+    if (ritualPatterns.some((pattern) => pattern.test(oracle)) ||
+        (typeLine.includes('instant') || typeLine.includes('sorcery')) && /add.*mana/i.test(oracle)) {
+      if (!rituals.includes(name)) {
+        rituals.push(name);
+      }
+    }
+
+    // Check for cantrips (cheap card draw)
+    if (cmc <= 2 && (typeLine.includes('instant') || typeLine.includes('sorcery')) &&
+        cantripPatterns.some((pattern) => pattern.test(oracle))) {
+      if (!cantrips.includes(name)) {
+        cantrips.push(name);
+      }
+    }
+
+    // Check for cost reduction
+    if (costReductionPatterns.some((pattern) => pattern.test(oracle))) {
+      if (!costReduction.includes(name)) {
+        costReduction.push(name);
+      }
+    }
+  });
+
+  // Require storm cards OR very high spell density
+  if (stormCards.length === 0 && instantsAndSorceries < 25) {
+    return null;
+  }
+
+  let score = 5;
+  if (stormCards.length >= 2 && rituals.length >= 4 && cantrips.length >= 8) {
+    score = 9; // Dedicated storm deck
+  } else if (stormCards.length >= 1 && rituals.length >= 3 && cantrips.length >= 6) {
+    score = 8;
+  } else if (stormCards.length >= 1 && (rituals.length >= 2 || cantrips.length >= 5)) {
+    score = 7;
+  } else if (stormCards.length >= 1) {
+    score = 6;
+  }
+
+  return {
+    stormCards,
+    rituals,
+    cantrips,
+    costReduction,
+    instantsAndSorceries,
+    score,
+  };
+}
+
+/**
+ * Detects Equipment and Aura synergies (Voltron/Bogles strategy)
+ */
+export function detectEquipmentAuraSynergy(cards: DeckCard[]): EquipmentAuraSynergy | null {
+  const equipments: string[] = [];
+  const auras: string[] = [];
+  const equipmentPayoffs: string[] = [];
+  const auraPayoffs: string[] = [];
+  const equipmentEnablers: string[] = [];
+  const hexproofCreatures: string[] = [];
+
+  cards.forEach(({ card }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+    const typeLine = card.type_line.toLowerCase();
+    const keywords = card.keywords || [];
+
+    // Check for equipment
+    if (typeLine.includes('equipment')) {
+      equipments.push(name);
+    }
+
+    // Check for auras
+    if (typeLine.includes('enchantment') && typeLine.includes('aura')) {
+      auras.push(name);
+    }
+
+    // Check for equipment payoffs
+    if (/whenever.*equipped/i.test(oracle) || /equipped creature/i.test(oracle)) {
+      if (!equipmentPayoffs.includes(name)) {
+        equipmentPayoffs.push(name);
+      }
+    }
+
+    // Check for aura payoffs
+    if (/whenever.*enchanted/i.test(oracle) || /enchanted creature/i.test(oracle)) {
+      if (!auraPayoffs.includes(name)) {
+        auraPayoffs.push(name);
+      }
+    }
+
+    // Check for equipment enablers (reduce equip cost, auto-attach)
+    if (/equip.*costs.*less/i.test(oracle) ||
+        /auto-attach/i.test(oracle) ||
+        /when.*enters.*attach/i.test(oracle)) {
+      if (!equipmentEnablers.includes(name)) {
+        equipmentEnablers.push(name);
+      }
+    }
+
+    // Check for hexproof/shroud creatures (good targets)
+    if (typeLine.includes('creature') &&
+        (keywords.some((kw) => /hexproof|shroud/i.test(kw)) ||
+         /hexproof|shroud/i.test(oracle))) {
+      hexproofCreatures.push(name);
+    }
+  });
+
+  // Require at least 4 equipment OR 4 auras
+  if (equipments.length < 4 && auras.length < 4) {
+    return null;
+  }
+
+  let score = 5;
+  const total = equipments.length + auras.length;
+  const enablers = equipmentEnablers.length + hexproofCreatures.length;
+
+  if (total >= 12 && enablers >= 4) {
+    score = 9; // Dedicated voltron deck
+  } else if (total >= 10 && enablers >= 3) {
+    score = 8;
+  } else if (total >= 8 && enablers >= 2) {
+    score = 7;
+  } else if (total >= 6) {
+    score = 6;
+  }
+
+  return {
+    equipments,
+    auras,
+    equipmentPayoffs,
+    auraPayoffs,
+    equipmentEnablers,
+    hexproofCreatures,
+    score,
+  };
+}
+
+/**
+ * Detects Lifegain synergies (Soul Sisters strategy)
+ */
+export function detectLifegainSynergy(cards: DeckCard[]): LifegainSynergy | null {
+  const lifegainTriggers: string[] = [];
+  const lifegainSources: string[] = [];
+  const lifelinkCreatures: string[] = [];
+
+  cards.forEach(({ card }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+    const typeLine = card.type_line.toLowerCase();
+    const keywords = card.keywords || [];
+
+    // Check for lifegain triggers
+    if (/whenever.*gain.*life/i.test(oracle) || /when.*gain.*life/i.test(oracle)) {
+      if (!lifegainTriggers.includes(name)) {
+        lifegainTriggers.push(name);
+      }
+    }
+
+    // Check for lifegain sources
+    if (/you gain.*life/i.test(oracle) || /gain.*life/i.test(oracle)) {
+      if (!lifegainSources.includes(name)) {
+        lifegainSources.push(name);
+      }
+    }
+
+    // Check for lifelink creatures
+    if (typeLine.includes('creature') &&
+        (keywords.some((kw) => kw.toLowerCase() === 'lifelink') ||
+         /lifelink/i.test(oracle))) {
+      lifelinkCreatures.push(name);
+    }
+  });
+
+  // Require at least 3 triggers AND 4 sources
+  if (lifegainTriggers.length < 3 || (lifegainSources.length + lifelinkCreatures.length) < 4) {
+    return null;
+  }
+
+  let score = 5;
+  const totalSources = lifegainSources.length + lifelinkCreatures.length;
+
+  if (lifegainTriggers.length >= 6 && totalSources >= 10) {
+    score = 9;
+  } else if (lifegainTriggers.length >= 5 && totalSources >= 8) {
+    score = 8;
+  } else if (lifegainTriggers.length >= 4 && totalSources >= 6) {
+    score = 7;
+  } else if (lifegainTriggers.length >= 3 && totalSources >= 5) {
+    score = 6;
+  }
+
+  return {
+    lifegainTriggers,
+    lifegainSources,
+    lifelinkCreatures,
+    score,
+  };
+}
+
+/**
+ * Detects Food token synergies
+ */
+export function detectFoodSynergy(cards: DeckCard[]): FoodSynergy | null {
+  const foodProducers: string[] = [];
+  const foodPayoffs: string[] = [];
+  const sacrificeOutlets: string[] = [];
+
+  cards.forEach(({ card }) => {
+    const oracle = card.oracle_text || '';
+    const name = getCardDisplayName(card);
+
+    // Check for food production
+    if (/create.*food/i.test(oracle) || /food token/i.test(oracle)) {
+      if (!foodProducers.includes(name)) {
+        foodProducers.push(name);
+      }
+    }
+
+    // Check for food payoffs
+    if (/whenever.*food/i.test(oracle) || /sacrifice.*food/i.test(oracle)) {
+      if (!foodPayoffs.includes(name)) {
+        foodPayoffs.push(name);
+      }
+    }
+
+    // Check for sacrifice outlets (artifacts)
+    if (/sacrifice.*artifact/i.test(oracle)) {
+      if (!sacrificeOutlets.includes(name)) {
+        sacrificeOutlets.push(name);
+      }
+    }
+  });
+
+  // Require at least 4 food producers
+  if (foodProducers.length < 4) {
+    return null;
+  }
+
+  let score = 5;
+  if (foodProducers.length >= 8 && (foodPayoffs.length + sacrificeOutlets.length) >= 4) {
+    score = 8;
+  } else if (foodProducers.length >= 6 && (foodPayoffs.length + sacrificeOutlets.length) >= 3) {
+    score = 7;
+  } else if (foodProducers.length >= 5) {
+    score = 6;
+  }
+
+  return {
+    foodProducers,
+    foodPayoffs,
+    sacrificeOutlets,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1411,8 +2149,8 @@ export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] 
         name: '金属術 (Metalcraft)',
         requiredCount: 3,
         currentCount: artifactCount,
-        enablers: artifacts.map((dc) => dc.card.name),
-        payoffs: metalcraftPayoffs.map((dc) => dc.card.name),
+        enablers: artifacts.map((dc) => getCardDisplayName(dc.card)),
+        payoffs: metalcraftPayoffs.map((dc) => getCardDisplayName(dc.card)),
         achievementLikelihood: likelihood,
         score,
       });
@@ -1455,8 +2193,8 @@ export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] 
         name: '昂揚 (Delirium)',
         requiredCount: 4,
         currentCount: cardTypes.size,
-        enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
-        payoffs: deliriumPayoffs.map((dc) => dc.card.name),
+        enablers: graveyardFillers.map((dc) => getCardDisplayName(dc.card)).slice(0, 5),
+        payoffs: deliriumPayoffs.map((dc) => getCardDisplayName(dc.card)),
         achievementLikelihood: likelihood,
         score,
       });
@@ -1501,8 +2239,8 @@ export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] 
         name: '領域 (Domain)',
         requiredCount: 5,
         currentCount: basicLandTypes.size,
-        enablers: domainEnablers.map((dc) => dc.card.name).slice(0, 5),
-        payoffs: domainPayoffs.map((dc) => dc.card.name),
+        enablers: domainEnablers.map((dc) => getCardDisplayName(dc.card)).slice(0, 5),
+        payoffs: domainPayoffs.map((dc) => getCardDisplayName(dc.card)),
         achievementLikelihood: likelihood,
         score,
       });
@@ -1532,8 +2270,8 @@ export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] 
       name: '絶対値 (Threshold)',
       requiredCount: 7,
       currentCount: fillerCount, // Approximate
-      enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
-      payoffs: thresholdPayoffs.map((dc) => dc.card.name),
+      enablers: graveyardFillers.map((dc) => getCardDisplayName(dc.card)).slice(0, 5),
+      payoffs: thresholdPayoffs.map((dc) => getCardDisplayName(dc.card)),
       achievementLikelihood: likelihood,
       score,
     });
@@ -1561,8 +2299,8 @@ export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] 
       name: '下降 (Descend)',
       requiredCount: 8,
       currentCount: fillerCount, // Approximate
-      enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
-      payoffs: descendPayoffs.map((dc) => dc.card.name),
+      enablers: graveyardFillers.map((dc) => getCardDisplayName(dc.card)).slice(0, 5),
+      payoffs: descendPayoffs.map((dc) => getCardDisplayName(dc.card)),
       achievementLikelihood: likelihood,
       score,
     });
@@ -1648,7 +2386,9 @@ export function detectFeedbackLoops(cards: DeckCard[]): FeedbackLoop[] {
           ) {
             // Found a feedback loop!
             const loopType = `${outputB}_${outputA}`;
-            const description = `${patternA.card.card.name} produces ${outputA}, triggering ${patternB.card.card.name}, which produces ${outputB}, triggering ${patternA.card.card.name}`;
+            const cardAName = getCardDisplayName(patternA.card.card);
+            const cardBName = getCardDisplayName(patternB.card.card);
+            const description = `${cardAName} produces ${outputA}, triggering ${cardBName}, which produces ${outputB}, triggering ${cardAName}`;
 
             // Calculate score based on quantities and loop strength
             let score = 6; // Base score for any feedback loop
@@ -1659,8 +2399,8 @@ export function detectFeedbackLoops(cards: DeckCard[]): FeedbackLoop[] {
 
             loops.push({
               loopType,
-              cardA: patternA.card.card.name,
-              cardB: patternB.card.card.name,
+              cardA: cardAName,
+              cardB: cardBName,
               triggerA: outputB,
               outputA: outputA,
               triggerB: outputA,
@@ -1675,6 +2415,347 @@ export function detectFeedbackLoops(cards: DeckCard[]): FeedbackLoop[] {
   }
 
   return loops;
+}
+
+/**
+ * Card-level synergy information
+ */
+export interface CardSynergyInfo {
+  cardName: string;
+  synergies: {
+    type: string; // e.g., "token_producer", "graveyard_filler", etc.
+    category: string; // e.g., "Token Synergy", "Graveyard Synergy"
+    role: string; // e.g., "Producer", "Payoff", "Enabler"
+    description: string;
+  }[];
+  relatedCards: string[]; // Names of cards this synergizes with
+  synergyScore: number; // Overall synergy contribution (1-10)
+}
+
+/**
+ * Analyzes a single card's synergies within the deck context
+ */
+export function analyzeCardSynergies(
+  card: Card,
+  allCards: DeckCard[],
+  deckSynergies: SynergyAnalysis
+): CardSynergyInfo {
+  const cardName = getCardDisplayName(card);
+  const synergies: CardSynergyInfo['synergies'] = [];
+  const relatedCards: Set<string> = new Set();
+  let synergyScore = 0;
+
+  const oracle = (card.oracle_text || '').toLowerCase();
+  const typeLine = card.type_line.toLowerCase();
+
+  // Check tribal synergies
+  deckSynergies.tribalSynergies.forEach((tribal) => {
+    if (tribal.cards.includes(cardName)) {
+      synergies.push({
+        type: 'tribal',
+        category: '部族シナジー',
+        role: tribal.type,
+        description: `${tribal.type}部族の一員として貢献（${tribal.count}枚中）`,
+      });
+      tribal.cards.forEach((c) => c !== cardName && relatedCards.add(c));
+      synergyScore += tribal.score / tribal.count;
+    }
+  });
+
+  // Check token synergies
+  if (deckSynergies.tokenSynergy) {
+    if (deckSynergies.tokenSynergy.producers.includes(cardName)) {
+      synergies.push({
+        type: 'token_producer',
+        category: 'トークンシナジー',
+        role: '生成',
+        description: 'トークンを生成し、トークン活用カードと相性が良い',
+      });
+      deckSynergies.tokenSynergy.payoffs.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.tokenSynergy.score / 2;
+    }
+    if (deckSynergies.tokenSynergy.payoffs.includes(cardName)) {
+      synergies.push({
+        type: 'token_payoff',
+        category: 'トークンシナジー',
+        role: '活用',
+        description: 'トークンを活用し、トークン生成カードと相性が良い',
+      });
+      deckSynergies.tokenSynergy.producers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.tokenSynergy.score / 2;
+    }
+  }
+
+  // Check graveyard synergies
+  if (deckSynergies.graveyardSynergy) {
+    if (deckSynergies.graveyardSynergy.graveyardFillers.includes(cardName)) {
+      synergies.push({
+        type: 'graveyard_filler',
+        category: '墓地シナジー',
+        role: '墓地肥やし',
+        description: '墓地にカードを送り、墓地利用カードと相性が良い',
+      });
+      deckSynergies.graveyardSynergy.graveyardPayoffs.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.graveyardSynergy.score / 2;
+    }
+    if (deckSynergies.graveyardSynergy.graveyardPayoffs.includes(cardName)) {
+      synergies.push({
+        type: 'graveyard_payoff',
+        category: '墓地シナジー',
+        role: '墓地利用',
+        description: '墓地のカードを活用し、墓地肥やしカードと相性が良い',
+      });
+      deckSynergies.graveyardSynergy.graveyardFillers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.graveyardSynergy.score / 2;
+    }
+  }
+
+  // Check counter synergies
+  if (deckSynergies.counterSynergy) {
+    if (deckSynergies.counterSynergy.counterCards.includes(cardName)) {
+      synergies.push({
+        type: 'counter_card',
+        category: '+1/+1カウンターシナジー',
+        role: 'カウンター',
+        description: '+1/+1カウンターを置き、増殖カードと相性が良い',
+      });
+      deckSynergies.counterSynergy.proliferateCards.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.counterSynergy.score / 2;
+    }
+    if (deckSynergies.counterSynergy.proliferateCards.includes(cardName)) {
+      synergies.push({
+        type: 'proliferate',
+        category: '+1/+1カウンターシナジー',
+        role: '増殖',
+        description: 'カウンターを増殖し、カウンターカードと相性が良い',
+      });
+      deckSynergies.counterSynergy.counterCards.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.counterSynergy.score / 2;
+    }
+  }
+
+  // Check feedback loops
+  deckSynergies.feedbackLoops.forEach((loop) => {
+    if (loop.cardA === cardName || loop.cardB === cardName) {
+      const partner = loop.cardA === cardName ? loop.cardB : loop.cardA;
+      synergies.push({
+        type: 'feedback_loop',
+        category: 'フィードバックループ',
+        role: '相互増幅',
+        description: `${partner}と相互に増幅する強力なコンボ`,
+      });
+      relatedCards.add(partner);
+      synergyScore += loop.score;
+    }
+  });
+
+  // Check sacrifice synergies
+  if (deckSynergies.sacrificeSynergy) {
+    if (deckSynergies.sacrificeSynergy.outlets.includes(cardName)) {
+      synergies.push({
+        type: 'sacrifice_outlet',
+        category: '生け贄シナジー',
+        role: '生け贄先',
+        description: 'パーマネントを生け贄に捧げ、生け贄要員・死亡誘発カードと相性が良い',
+      });
+      deckSynergies.sacrificeSynergy.fodder.forEach((c) => relatedCards.add(c));
+      deckSynergies.sacrificeSynergy.payoffs.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.sacrificeSynergy.score / 3;
+    }
+    if (deckSynergies.sacrificeSynergy.fodder.includes(cardName)) {
+      synergies.push({
+        type: 'sacrifice_fodder',
+        category: '生け贄シナジー',
+        role: '生け贄要員',
+        description: '生け贄に適しており、生け贄先カードと相性が良い',
+      });
+      deckSynergies.sacrificeSynergy.outlets.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.sacrificeSynergy.score / 3;
+    }
+    if (deckSynergies.sacrificeSynergy.payoffs.includes(cardName)) {
+      synergies.push({
+        type: 'death_trigger',
+        category: '生け贄シナジー',
+        role: '死亡誘発',
+        description: 'クリーチャーの死亡で誘発し、生け贄戦略の核となる',
+      });
+      deckSynergies.sacrificeSynergy.outlets.forEach((c) => relatedCards.add(c));
+      deckSynergies.sacrificeSynergy.fodder.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.sacrificeSynergy.score / 3;
+    }
+  }
+
+  // Check mana acceleration synergies
+  if (deckSynergies.manaAccelerationSynergy) {
+    const isRampCard =
+      deckSynergies.manaAccelerationSynergy.manaCreatures.includes(cardName) ||
+      deckSynergies.manaAccelerationSynergy.manaArtifacts.includes(cardName) ||
+      deckSynergies.manaAccelerationSynergy.landRamp.includes(cardName) ||
+      deckSynergies.manaAccelerationSynergy.extraLandPlays.includes(cardName) ||
+      deckSynergies.manaAccelerationSynergy.costReduction.includes(cardName);
+
+    if (isRampCard) {
+      synergies.push({
+        type: 'mana_acceleration',
+        category: 'マナ加速シナジー',
+        role: 'ランプ',
+        description: 'マナを加速し、高マナ域カードを早期展開できる',
+      });
+      deckSynergies.manaAccelerationSynergy.payoffs.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.manaAccelerationSynergy.score / 2;
+    }
+    if (deckSynergies.manaAccelerationSynergy.payoffs.includes(cardName)) {
+      synergies.push({
+        type: 'mana_payoff',
+        category: 'マナ加速シナジー',
+        role: '高マナ域',
+        description: 'マナ加速により早期展開可能な強力なカード',
+      });
+      synergyScore += deckSynergies.manaAccelerationSynergy.score / 2;
+    }
+  }
+
+  // Check spellslinger synergies
+  if (deckSynergies.spellslingerSynergy) {
+    const isInstantOrSorcery = typeLine.includes('instant') || typeLine.includes('sorcery');
+    const isTrigger = deckSynergies.spellslingerSynergy.spellTriggers.includes(cardName);
+    const isCopier = deckSynergies.spellslingerSynergy.spellCopiers.includes(cardName);
+
+    if (isTrigger || isCopier) {
+      synergies.push({
+        type: 'spellslinger_enabler',
+        category: 'スペルスリンガー',
+        role: isCopier ? '呪文コピー' : '呪文誘発',
+        description: 'インスタント・ソーサリーから追加の価値を得る',
+      });
+      synergyScore += deckSynergies.spellslingerSynergy.score / 2;
+    }
+    if (isInstantOrSorcery) {
+      synergies.push({
+        type: 'spell',
+        category: 'スペルスリンガー',
+        role: '呪文',
+        description: '呪文誘発カードや呪文コピーカードと相性が良い',
+      });
+      deckSynergies.spellslingerSynergy.spellTriggers.forEach((c) => relatedCards.add(c));
+      deckSynergies.spellslingerSynergy.spellCopiers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.spellslingerSynergy.score / 2;
+    }
+  }
+
+  // Check attack trigger synergies
+  if (deckSynergies.attackTriggerSynergy) {
+    if (deckSynergies.attackTriggerSynergy.attackTriggers.includes(cardName)) {
+      synergies.push({
+        type: 'attack_trigger',
+        category: '攻撃トリガー',
+        role: '攻撃誘発',
+        description: '攻撃時に誘発し、攻撃補助カードと相性が良い',
+      });
+      deckSynergies.attackTriggerSynergy.enablers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.attackTriggerSynergy.score / 2;
+    }
+    if (deckSynergies.attackTriggerSynergy.enablers.includes(cardName)) {
+      synergies.push({
+        type: 'attack_enabler',
+        category: '攻撃トリガー',
+        role: '攻撃補助',
+        description: '攻撃を容易にし、攻撃トリガーカードと相性が良い',
+      });
+      deckSynergies.attackTriggerSynergy.attackTriggers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.attackTriggerSynergy.score / 2;
+    }
+  }
+
+  // Check tap/untap synergies
+  if (deckSynergies.tapUntapSynergy) {
+    if (deckSynergies.tapUntapSynergy.tapAbilities.includes(cardName)) {
+      synergies.push({
+        type: 'tap_ability',
+        category: 'タップ/アンタップ',
+        role: 'タップ能力',
+        description: 'タップ能力を持ち、アンタップカードと相性が良い',
+      });
+      deckSynergies.tapUntapSynergy.untappers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.tapUntapSynergy.score / 2;
+    }
+    if (deckSynergies.tapUntapSynergy.untappers.includes(cardName)) {
+      synergies.push({
+        type: 'untapper',
+        category: 'タップ/アンタップ',
+        role: 'アンタップ',
+        description: 'パーマネントをアンタップし、タップ能力カードと相性が良い',
+      });
+      deckSynergies.tapUntapSynergy.tapAbilities.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.tapUntapSynergy.score / 2;
+    }
+  }
+
+  // Check ETB synergies
+  if (deckSynergies.etbSynergy) {
+    if (deckSynergies.etbSynergy.etbTriggers.includes(cardName)) {
+      synergies.push({
+        type: 'etb_trigger',
+        category: 'ETBシナジー',
+        role: 'ETBトリガー',
+        description: '戦場に出た時の能力を持ち、ブリンク・リアニメイトと相性が良い',
+      });
+      deckSynergies.etbSynergy.blinkEffects.forEach((c) => relatedCards.add(c));
+      deckSynergies.etbSynergy.reanimation.forEach((c) => relatedCards.add(c));
+      deckSynergies.etbSynergy.clones.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.etbSynergy.score / 2;
+    }
+    if (deckSynergies.etbSynergy.blinkEffects.includes(cardName)) {
+      synergies.push({
+        type: 'blink',
+        category: 'ETBシナジー',
+        role: 'ブリンク',
+        description: 'クリーチャーを一時除外して戻し、ETBトリガーを再利用',
+      });
+      deckSynergies.etbSynergy.etbTriggers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.etbSynergy.score / 2;
+    }
+    if (deckSynergies.etbSynergy.reanimation.includes(cardName)) {
+      synergies.push({
+        type: 'reanimate',
+        category: 'ETBシナジー',
+        role: 'リアニメイト',
+        description: '墓地からクリーチャーを戦場に出し、ETBトリガーを活用',
+      });
+      deckSynergies.etbSynergy.etbTriggers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.etbSynergy.score / 2;
+    }
+    if (deckSynergies.etbSynergy.cheatIntoPlay.includes(cardName)) {
+      synergies.push({
+        type: 'cheat',
+        category: 'ETBシナジー',
+        role: '直接戦場へ',
+        description: 'カードを直接戦場に出し、ETBトリガーを活用',
+      });
+      deckSynergies.etbSynergy.etbTriggers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.etbSynergy.score / 2;
+    }
+    if (deckSynergies.etbSynergy.clones.includes(cardName)) {
+      synergies.push({
+        type: 'clone',
+        category: 'ETBシナジー',
+        role: 'クローン',
+        description: 'クリーチャーをコピーし、ETBトリガーを再現',
+      });
+      deckSynergies.etbSynergy.etbTriggers.forEach((c) => relatedCards.add(c));
+      synergyScore += deckSynergies.etbSynergy.score / 2;
+    }
+  }
+
+  // Cap synergy score at 10
+  synergyScore = Math.min(10, synergyScore);
+
+  return {
+    cardName,
+    synergies,
+    relatedCards: Array.from(relatedCards),
+    synergyScore: Math.round(synergyScore * 10) / 10,
+  };
 }
 
 /**
@@ -1696,6 +2777,14 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const enchantmentArtifactSynergy = detectEnchantmentArtifactSynergy(cards);
   const libraryTopSynergy = detectLibraryTopSynergy(cards);
   const exileZoneSynergy = detectExileZoneSynergy(cards);
+  const etbSynergy = detectETBSynergy(cards);
+  const landfallSynergy = detectLandfallSynergy(cards);
+  const energySynergy = detectEnergySynergy(cards);
+  const treasureSynergy = detectTreasureSynergy(cards);
+  const stormSynergy = detectStormSynergy(cards);
+  const equipmentAuraSynergy = detectEquipmentAuraSynergy(cards);
+  const lifegainSynergy = detectLifegainSynergy(cards);
+  const foodSynergy = detectFoodSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1785,6 +2874,54 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // ETB synergy
+  if (etbSynergy && etbSynergy.score > 0) {
+    overallScore += etbSynergy.score;
+    synergyCount++;
+  }
+
+  // Landfall synergy
+  if (landfallSynergy && landfallSynergy.score > 0) {
+    overallScore += landfallSynergy.score;
+    synergyCount++;
+  }
+
+  // Energy synergy
+  if (energySynergy && energySynergy.score > 0) {
+    overallScore += energySynergy.score;
+    synergyCount++;
+  }
+
+  // Treasure synergy
+  if (treasureSynergy && treasureSynergy.score > 0) {
+    overallScore += treasureSynergy.score;
+    synergyCount++;
+  }
+
+  // Storm synergy
+  if (stormSynergy && stormSynergy.score > 0) {
+    overallScore += stormSynergy.score;
+    synergyCount++;
+  }
+
+  // Equipment/Aura synergy
+  if (equipmentAuraSynergy && equipmentAuraSynergy.score > 0) {
+    overallScore += equipmentAuraSynergy.score;
+    synergyCount++;
+  }
+
+  // Lifegain synergy
+  if (lifegainSynergy && lifegainSynergy.score > 0) {
+    overallScore += lifegainSynergy.score;
+    synergyCount++;
+  }
+
+  // Food synergy
+  if (foodSynergy && foodSynergy.score > 0) {
+    overallScore += foodSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1813,6 +2950,14 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     enchantmentArtifactSynergy,
     libraryTopSynergy,
     exileZoneSynergy,
+    etbSynergy,
+    landfallSynergy,
+    energySynergy,
+    treasureSynergy,
+    stormSynergy,
+    equipmentAuraSynergy,
+    lifegainSynergy,
+    foodSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }
