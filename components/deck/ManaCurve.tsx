@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { ManaCurveData } from '@/types/deck';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -7,15 +8,17 @@ interface ManaCurveProps {
   data: ManaCurveData[];
 }
 
-export function ManaCurve({ data }: ManaCurveProps) {
-  // Ensure we have data for CMC 0-7+
-  const fullData = Array.from({ length: 8 }, (_, i) => {
-    const existing = data.find((d) => d.cmc === i);
-    return {
-      cmc: i === 7 ? '7+' : i.toString(),
-      count: existing?.count || 0,
-    };
-  });
+export const ManaCurve = memo(function ManaCurve({ data }: ManaCurveProps) {
+  // Ensure we have data for CMC 0-7+ (memoized to avoid recalculation)
+  const fullData = useMemo(() => {
+    return Array.from({ length: 8 }, (_, i) => {
+      const existing = data.find((d) => d.cmc === i);
+      return {
+        cmc: i === 7 ? '7+' : i.toString(),
+        count: existing?.count || 0,
+      };
+    });
+  }, [data]);
 
   return (
     <div className="border rounded-lg p-4">
@@ -31,4 +34,4 @@ export function ManaCurve({ data }: ManaCurveProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

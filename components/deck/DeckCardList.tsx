@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useMemo } from 'react';
 import { DeckCard } from '@/types/deck';
 import { Button } from '@/components/ui/button';
 import { ManaCost } from '@/components/cards/ManaSymbol';
@@ -36,14 +36,14 @@ interface DeckCardListProps {
   onCardClick?: (card: DeckCard['card']) => void;
 }
 
-export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }: DeckCardListProps) {
+export const DeckCardList = memo(function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }: DeckCardListProps) {
   // 各カードタイプの開閉状態を管理（デフォルトは全て開く）
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   // Confirmation dialog state
   const [cardToRemove, setCardToRemove] = useState<{ id: string; name: string; quantity: number } | null>(null);
 
-  // カードをタイプ別にグループ化
-  const cardGroups = groupCardsByType(cards);
+  // カードをタイプ別にグループ化 (memoized)
+  const cardGroups = useMemo(() => groupCardsByType(cards), [cards]);
 
   // Open groups by default when new card types are added
   useEffect(() => {
@@ -251,4 +251,4 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
       </div>
     </TooltipProvider>
   );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState, useMemo } from 'react';
+import { use, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDeckStore } from '@/store/deckStore';
 import { useUIStore } from '@/store/uiStore';
@@ -68,23 +68,15 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     return getDeckStats();
   }, [currentDeck, getDeckStats]);
 
-  if (!currentDeck) {
-    console.log('Waiting for deck to load...');
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p>Loading deck...</p>
-      </div>
-    );
-  }
-
-  const handleSaveDeckInfo = () => {
+  // All hooks must be called before any conditional returns
+  const handleSaveDeckInfo = useCallback(() => {
     updateDeckInfo({
       name: deckName,
       description: deckDescription,
     });
-  };
+  }, [deckName, deckDescription, updateDeckInfo]);
 
-  const handleEnrichWithJapanese = async () => {
+  const handleEnrichWithJapanese = useCallback(async () => {
     console.log('Starting Japanese enrichment...');
     setIsEnriching(true);
     try {
@@ -97,9 +89,9 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     } finally {
       setIsEnriching(false);
     }
-  };
+  }, [enrichAllCardsWithJapanese]);
 
-  const handleAnalyzeDeck = async (dryRun = false, type?: string) => {
+  const handleAnalyzeDeck = useCallback(async (dryRun = false, type?: string) => {
     if (!currentDeck) return;
 
     const selectedType = type || analysisType;
@@ -142,9 +134,9 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [currentDeck, analysisType]);
 
-  const getAnalysisTypeName = (type: string) => {
+  const getAnalysisTypeName = useCallback((type: string) => {
     switch (type) {
       case 'manabase': return 'マナベース分析';
       case 'strategy': return '戦略・シナジー分析';
@@ -152,9 +144,9 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
       case 'comprehensive': return '総合分析';
       default: return '分析';
     }
-  };
+  }, []);
 
-  const handleCopySystemPrompt = async () => {
+  const handleCopySystemPrompt = useCallback(async () => {
     if (!systemPrompt) return;
 
     try {
@@ -164,9 +156,9 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     } catch (error) {
       console.error('Failed to copy:', error);
     }
-  };
+  }, [systemPrompt]);
 
-  const handleCopyUserPrompt = async () => {
+  const handleCopyUserPrompt = useCallback(async () => {
     if (!userPrompt) return;
 
     try {
@@ -176,9 +168,9 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     } catch (error) {
       console.error('Failed to copy:', error);
     }
-  };
+  }, [userPrompt]);
 
-  const handleCopyAnalysis = async () => {
+  const handleCopyAnalysis = useCallback(async () => {
     if (!analysisResult) return;
 
     try {
@@ -188,7 +180,16 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     } catch (error) {
       console.error('Failed to copy:', error);
     }
-  };
+  }, [analysisResult]);
+
+  if (!currentDeck) {
+    console.log('Waiting for deck to load...');
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <p>Loading deck...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

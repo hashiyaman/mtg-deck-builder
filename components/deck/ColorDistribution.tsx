@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { ColorDistribution as ColorDistributionType } from '@/types/deck';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
@@ -17,14 +18,20 @@ const COLOR_MAP = {
   multicolor: { name: '多色', color: '#F9E084' },
 };
 
-export function ColorDistribution({ data }: ColorDistributionProps) {
-  const chartData = Object.entries(data)
-    .filter(([_, count]) => count > 0)
-    .map(([color, count]) => ({
-      name: COLOR_MAP[color as keyof typeof COLOR_MAP].name,
-      value: count,
-      color: COLOR_MAP[color as keyof typeof COLOR_MAP].color,
-    }));
+export const ColorDistribution = memo(function ColorDistribution({ data }: ColorDistributionProps) {
+  const chartData = useMemo(() => {
+    return Object.entries(data)
+      .filter(([_, count]) => count > 0)
+      .map(([color, count]) => ({
+        name: COLOR_MAP[color as keyof typeof COLOR_MAP].name,
+        value: count,
+        color: COLOR_MAP[color as keyof typeof COLOR_MAP].color,
+      }));
+  }, [data]);
+
+  const totalCards = useMemo(() => {
+    return chartData.reduce((sum, item) => sum + item.value, 0);
+  }, [chartData]);
 
   if (chartData.length === 0) {
     return (
@@ -36,8 +43,6 @@ export function ColorDistribution({ data }: ColorDistributionProps) {
       </div>
     );
   }
-
-  const totalCards = chartData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="border rounded-lg p-4">
@@ -88,4 +93,4 @@ export function ColorDistribution({ data }: ColorDistributionProps) {
       </div>
     </div>
   );
-}
+});

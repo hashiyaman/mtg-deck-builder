@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { DeckStats as DeckStatsType } from '@/types/deck';
 import { Badge } from '@/components/ui/badge';
 
@@ -7,7 +8,7 @@ interface DeckStatsProps {
   stats: DeckStatsType;
 }
 
-export function DeckStats({ stats }: DeckStatsProps) {
+export const DeckStats = memo(function DeckStats({ stats }: DeckStatsProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -190,4 +191,4 @@ export function DeckStats({ stats }: DeckStatsProps) {
       </div>
     </div>
   );
-}
+});
