@@ -62,6 +62,16 @@ export interface SacrificeSynergy {
   score: number; // 1-10
 }
 
+export interface ManaAccelerationSynergy {
+  manaCreatures: string[]; // Creatures that produce mana
+  manaArtifacts: string[]; // Artifacts that produce mana
+  landRamp: string[]; // Land search/ramp spells
+  extraLandPlays: string[]; // Cards that allow extra land plays
+  costReduction: string[]; // Cards with cost reduction mechanics
+  payoffs: string[]; // High CMC cards (5+) that benefit from ramp
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -71,6 +81,7 @@ export interface SynergyAnalysis {
   feedbackLoops: FeedbackLoop[];
   thresholdSynergies: ThresholdSynergy[];
   sacrificeSynergy: SacrificeSynergy | null;
+  manaAccelerationSynergy: ManaAccelerationSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -458,6 +469,154 @@ export function detectSacrificeSynergy(cards: DeckCard[]): SacrificeSynergy | nu
 }
 
 /**
+ * Detects mana acceleration synergies (ramp strategy)
+ */
+export function detectManaAccelerationSynergy(cards: DeckCard[]): ManaAccelerationSynergy | null {
+  const manaCreatures: string[] = [];
+  const manaArtifacts: string[] = [];
+  const landRamp: string[] = [];
+  const extraLandPlays: string[] = [];
+  const costReduction: string[] = [];
+  const payoffs: string[] = [];
+
+  // Mana creature patterns (creatures that tap for mana or produce mana)
+  const manaCreaturePatterns = [
+    /add.*{[WUBRGC]}/i,
+    /add.*mana/i,
+    /{T}:.*add/i,
+  ];
+
+  // Mana artifact patterns
+  const manaArtifactPatterns = [
+    /add.*{[WUBRGC]}/i,
+    /add.*mana/i,
+    /{T}:.*add/i,
+  ];
+
+  // Land ramp patterns (search for lands, put lands onto battlefield)
+  const landRampPatterns = [
+    /search.*library.*land/i,
+    /search.*library.*basic land/i,
+    /put.*land.*onto the battlefield/i,
+    /put.*land.*into play/i,
+    /rampant growth|cultivate|kodama's reach|explosive vegetation|skyshroud claim/i,
+  ];
+
+  // Extra land play patterns
+  const extraLandPlayPatterns = [
+    /play an additional land/i,
+    /play.*additional land/i,
+    /play any number of lands/i,
+    /play.*land.*each turn/i,
+    /azusa|exploration|oracle of mul daya|burgeoning/i,
+  ];
+
+  // Cost reduction patterns
+  const costReductionPatterns = [
+    /affinity/i,
+    /convoke/i,
+    /delve/i,
+    /cost.*less to cast/i,
+    /costs?.*{[0-9]}.*less/i,
+    /improvise/i,
+  ];
+
+  cards.forEach(({ card, quantity }) => {
+    const oracleText = card.oracle_text || '';
+    const cardName = card.name;
+    const typeLine = card.type_line.toLowerCase();
+    const cmc = card.cmc || 0;
+
+    // Check for mana creatures
+    if (typeLine.includes('creature')) {
+      if (manaCreaturePatterns.some((pattern) => pattern.test(oracleText))) {
+        if (!manaCreatures.includes(cardName)) {
+          manaCreatures.push(cardName);
+        }
+      }
+    }
+
+    // Check for mana artifacts (but not creatures)
+    if (typeLine.includes('artifact') && !typeLine.includes('creature')) {
+      if (manaArtifactPatterns.some((pattern) => pattern.test(oracleText))) {
+        if (!manaArtifacts.includes(cardName)) {
+          manaArtifacts.push(cardName);
+        }
+      }
+    }
+
+    // Check for land ramp
+    if (landRampPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!landRamp.includes(cardName)) {
+        landRamp.push(cardName);
+      }
+    }
+
+    // Check for extra land plays
+    if (extraLandPlayPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!extraLandPlays.includes(cardName)) {
+        extraLandPlays.push(cardName);
+      }
+    }
+
+    // Check for cost reduction
+    if (costReductionPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!costReduction.includes(cardName)) {
+        costReduction.push(cardName);
+      }
+    }
+
+    // High CMC cards as payoffs (5+)
+    if (cmc >= 5 && !typeLine.includes('land')) {
+      // Avoid counting ramp spells themselves as payoffs
+      const isRampSpell = landRampPatterns.some((pattern) => pattern.test(oracleText));
+      if (!isRampSpell && !payoffs.includes(cardName)) {
+        for (let i = 0; i < quantity; i++) {
+          payoffs.push(cardName);
+          if (payoffs.filter(name => name === cardName).length >= quantity) break;
+        }
+      }
+    }
+  });
+
+  // Total acceleration sources
+  const totalAccelerators = manaCreatures.length + manaArtifacts.length +
+                           landRamp.length + extraLandPlays.length + costReduction.length;
+
+  // Need at least some acceleration AND some payoffs
+  if (totalAccelerators === 0 || payoffs.length === 0) {
+    return null;
+  }
+
+  // Scoring based on density of ramp and high-cost payoffs
+  let score = 0;
+
+  if (totalAccelerators >= 12 && payoffs.length >= 8) {
+    score = 9; // Dedicated ramp deck
+  } else if ((totalAccelerators >= 10 && payoffs.length >= 6) || (totalAccelerators >= 7 && payoffs.length >= 8) || (totalAccelerators >= 5 && payoffs.length >= 10)) {
+    score = 8; // Strong ramp strategy (OR many payoffs with good/decent ramp)
+  } else if ((totalAccelerators >= 8 && payoffs.length >= 5) || (totalAccelerators >= 6 && payoffs.length >= 7)) {
+    score = 7; // Good ramp synergy
+  } else if ((totalAccelerators >= 6 && payoffs.length >= 4) || (totalAccelerators >= 5 && payoffs.length >= 6)) {
+    score = 6; // Moderate ramp
+  } else if (totalAccelerators >= 4 && payoffs.length >= 3) {
+    score = 5; // Light ramp
+  } else {
+    score = 4; // Minimal ramp
+  }
+
+  return {
+    manaCreatures,
+    manaArtifacts,
+    landRamp,
+    extraLandPlays,
+    costReduction,
+    payoffs,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -764,6 +923,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const feedbackLoops = detectFeedbackLoops(cards);
   const thresholdSynergies = detectThresholdSynergies(cards);
   const sacrificeSynergy = detectSacrificeSynergy(cards);
+  const manaAccelerationSynergy = detectManaAccelerationSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -811,6 +971,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Mana acceleration synergy
+  if (manaAccelerationSynergy && manaAccelerationSynergy.score > 0) {
+    overallScore += manaAccelerationSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -832,6 +998,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     feedbackLoops,
     thresholdSynergies,
     sacrificeSynergy,
+    manaAccelerationSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

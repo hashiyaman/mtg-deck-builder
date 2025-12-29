@@ -235,6 +235,31 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // マナ加速シナジー (Ramp)
+  if (synergyAnalysis.manaAccelerationSynergy) {
+    const ms = synergyAnalysis.manaAccelerationSynergy;
+    synergyText += '\nマナ加速シナジー (ランプ型) (スコア:' + ms.score + '/10):\n';
+    if (ms.manaCreatures.length > 0) {
+      synergyText += `- マナクリーチャー: ${ms.manaCreatures.join(', ')}\n`;
+    }
+    if (ms.manaArtifacts.length > 0) {
+      synergyText += `- マナアーティファクト: ${ms.manaArtifacts.join(', ')}\n`;
+    }
+    if (ms.landRamp.length > 0) {
+      synergyText += `- 土地サーチ: ${ms.landRamp.join(', ')}\n`;
+    }
+    if (ms.extraLandPlays.length > 0) {
+      synergyText += `- 追加土地プレイ: ${ms.extraLandPlays.join(', ')}\n`;
+    }
+    if (ms.costReduction.length > 0) {
+      synergyText += `- コスト軽減: ${ms.costReduction.join(', ')}\n`;
+    }
+    if (ms.payoffs.length > 0) {
+      const uniquePayoffs = [...new Set(ms.payoffs)];
+      synergyText += `- 高マナ域カード(CMC5+): ${uniquePayoffs.slice(0, 5).join(', ')}${uniquePayoffs.length > 5 ? ` 他${uniquePayoffs.length - 5}枚` : ''}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

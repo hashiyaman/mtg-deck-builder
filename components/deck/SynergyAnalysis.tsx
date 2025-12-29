@@ -13,7 +13,8 @@ import {
   ArrowRightLeft,
   TrendingUp,
   Target,
-  Heart
+  Heart,
+  TreeDeciduous
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -29,7 +30,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.keywordClusters.length > 0 ||
     synergies.feedbackLoops.length > 0 ||
     synergies.thresholdSynergies.length > 0 ||
-    synergies.sacrificeSynergy !== null;
+    synergies.sacrificeSynergy !== null ||
+    synergies.manaAccelerationSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -279,6 +281,59 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">死亡誘発: </span>
                   {synergies.sacrificeSynergy.payoffs.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Mana Acceleration Synergy */}
+        {synergies.manaAccelerationSynergy && (
+          <div className="border-l-4 border-l-emerald-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <TreeDeciduous className="h-4 w-4 text-emerald-500" />
+              <h4 className="font-semibold text-sm">マナ加速シナジー（ランプ）</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.manaAccelerationSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.manaAccelerationSynergy.manaCreatures.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">マナクリーチャー: </span>
+                  {synergies.manaAccelerationSynergy.manaCreatures.join(', ')}
+                </div>
+              )}
+              {synergies.manaAccelerationSynergy.manaArtifacts.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">マナアーティファクト: </span>
+                  {synergies.manaAccelerationSynergy.manaArtifacts.join(', ')}
+                </div>
+              )}
+              {synergies.manaAccelerationSynergy.landRamp.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">土地サーチ: </span>
+                  {synergies.manaAccelerationSynergy.landRamp.join(', ')}
+                </div>
+              )}
+              {synergies.manaAccelerationSynergy.extraLandPlays.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">追加土地プレイ: </span>
+                  {synergies.manaAccelerationSynergy.extraLandPlays.join(', ')}
+                </div>
+              )}
+              {synergies.manaAccelerationSynergy.costReduction.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">コスト軽減: </span>
+                  {synergies.manaAccelerationSynergy.costReduction.join(', ')}
+                </div>
+              )}
+              {synergies.manaAccelerationSynergy.payoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">高マナ域カード: </span>
+                  {[...new Set(synergies.manaAccelerationSynergy.payoffs)].slice(0, 5).join(', ')}
+                  {[...new Set(synergies.manaAccelerationSynergy.payoffs)].length > 5 &&
+                    ` 他${[...new Set(synergies.manaAccelerationSynergy.payoffs)].length - 5}枚`}
                 </div>
               )}
             </div>

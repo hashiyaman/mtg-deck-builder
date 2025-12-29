@@ -8,6 +8,7 @@ import {
   detectFeedbackLoops,
   detectThresholdSynergies,
   detectSacrificeSynergy,
+  detectManaAccelerationSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -962,6 +963,165 @@ describe('Synergy Analyzer', () => {
       ];
 
       const result = detectSacrificeSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectManaAccelerationSynergy', () => {
+    it('should detect full ramp strategy with all components', () => {
+      const cards: DeckCard[] = [
+        // Mana creatures
+        createDeckCard(createMockCard({ name: 'Llanowar Elves', type_line: 'Creature — Elf Druid', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Birds of Paradise', type_line: 'Creature — Bird', oracle_text: '{T}: Add one mana of any color.' }), 4),
+        // Mana artifacts
+        createDeckCard(createMockCard({ name: 'Sol Ring', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}.' }), 1),
+        createDeckCard(createMockCard({ name: 'Arcane Signet', type_line: 'Artifact', oracle_text: '{T}: Add one mana of any color.' }), 4),
+        // Land ramp
+        createDeckCard(createMockCard({ name: 'Rampant Growth', oracle_text: 'Search your library for a basic land card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Cultivate', oracle_text: 'Search your library for up to two basic land cards.' }), 4),
+        // Extra land plays
+        createDeckCard(createMockCard({ name: 'Azusa, Lost but Seeking', oracle_text: 'You may play two additional lands on each of your turns.' }), 1),
+        // High CMC payoffs
+        createDeckCard(createMockCard({ name: 'Primeval Titan', cmc: 6 }), 4),
+        createDeckCard(createMockCard({ name: 'Avenger of Zendikar', cmc: 7 }), 4),
+        createDeckCard(createMockCard({ name: 'Craterhoof Behemoth', cmc: 8 }), 2),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.manaCreatures).toContain('Llanowar Elves');
+      expect(result?.manaCreatures).toContain('Birds of Paradise');
+      expect(result?.manaArtifacts).toContain('Sol Ring');
+      expect(result?.manaArtifacts).toContain('Arcane Signet');
+      expect(result?.landRamp).toContain('Rampant Growth');
+      expect(result?.landRamp).toContain('Cultivate');
+      expect(result?.extraLandPlays).toContain('Azusa, Lost but Seeking');
+      expect(result?.payoffs).toContain('Primeval Titan');
+      expect(result?.payoffs).toContain('Avenger of Zendikar');
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should detect mana creatures', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Llanowar Elves', type_line: 'Creature — Elf', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Elvish Mystic', type_line: 'Creature — Elf', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Craterhoof Behemoth', type_line: 'Creature — Beast', cmc: 8 }), 2),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.manaCreatures).toContain('Llanowar Elves');
+      expect(result?.manaCreatures).toContain('Elvish Mystic');
+    });
+
+    it('should detect mana artifacts', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Sol Ring', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}.' }), 1),
+        createDeckCard(createMockCard({ name: 'Mana Vault', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}{C}.' }), 1),
+        createDeckCard(createMockCard({ name: 'Mana Crypt', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}.' }), 1),
+        createDeckCard(createMockCard({ name: 'Ulamog', type_line: 'Creature — Eldrazi', cmc: 10 }), 1),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.manaArtifacts).toContain('Sol Ring');
+      expect(result?.manaArtifacts).toContain('Mana Vault');
+      expect(result?.manaArtifacts).toContain('Mana Crypt');
+    });
+
+    it('should detect land ramp spells', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Rampant Growth', oracle_text: 'Search your library for a basic land card and put it onto the battlefield.' }), 4),
+        createDeckCard(createMockCard({ name: 'Cultivate', oracle_text: 'Search your library for up to two basic land cards.' }), 4),
+        createDeckCard(createMockCard({ name: 'Kodama\'s Reach', oracle_text: 'Search your library for up to two basic land cards.' }), 4),
+        createDeckCard(createMockCard({ name: 'Primeval Titan', cmc: 6 }), 4),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.landRamp).toContain('Rampant Growth');
+      expect(result?.landRamp).toContain('Cultivate');
+      expect(result?.landRamp).toContain('Kodama\'s Reach');
+    });
+
+    it('should detect extra land play effects', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Azusa, Lost but Seeking', oracle_text: 'You may play two additional lands on each of your turns.' }), 1),
+        createDeckCard(createMockCard({ name: 'Exploration', oracle_text: 'You may play an additional land on each of your turns.' }), 1),
+        createDeckCard(createMockCard({ name: 'Oracle of Mul Daya', oracle_text: 'You may play an additional land on each of your turns.' }), 1),
+        createDeckCard(createMockCard({ name: 'Omnath', cmc: 7 }), 2),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.extraLandPlays).toContain('Azusa, Lost but Seeking');
+      expect(result?.extraLandPlays).toContain('Exploration');
+    });
+
+    it('should detect cost reduction mechanics', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Frogmite', oracle_text: 'Affinity for artifacts' }), 4),
+        createDeckCard(createMockCard({ name: 'Solemn Simulacrum', oracle_text: 'This spell costs {1} less to cast for each artifact you control.' }), 4),
+        createDeckCard(createMockCard({ name: 'Convoke Spell', oracle_text: 'Convoke' }), 4),
+        createDeckCard(createMockCard({ name: 'Big Creature', cmc: 6 }), 3),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.costReduction).toContain('Frogmite');
+      expect(result?.costReduction).toContain('Solemn Simulacrum');
+      expect(result?.costReduction).toContain('Convoke Spell');
+    });
+
+    it('should detect high CMC payoffs', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Llanowar Elves', type_line: 'Creature', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Primeval Titan', type_line: 'Creature', cmc: 6 }), 4),
+        createDeckCard(createMockCard({ name: 'Avenger of Zendikar', type_line: 'Creature', cmc: 7 }), 4),
+        createDeckCard(createMockCard({ name: 'Ulamog', type_line: 'Creature', cmc: 10 }), 2),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.payoffs.length).toBeGreaterThanOrEqual(10); // 4+4+2 = 10 cards with CMC 5+
+    });
+
+    it('should assign high score for dedicated ramp deck', () => {
+      const cards: DeckCard[] = [
+        // 12+ accelerators
+        createDeckCard(createMockCard({ name: 'Llanowar Elves', type_line: 'Creature', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Elvish Mystic', type_line: 'Creature', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Sol Ring', type_line: 'Artifact', oracle_text: '{T}: Add {C}{C}.' }), 1),
+        createDeckCard(createMockCard({ name: 'Rampant Growth', oracle_text: 'Search your library for a basic land.' }), 4),
+        createDeckCard(createMockCard({ name: 'Cultivate', oracle_text: 'Search your library for lands.' }), 4),
+        // 8+ payoffs
+        createDeckCard(createMockCard({ name: 'Payoff 1', cmc: 6 }), 4),
+        createDeckCard(createMockCard({ name: 'Payoff 2', cmc: 7 }), 4),
+        createDeckCard(createMockCard({ name: 'Payoff 3', cmc: 8 }), 2),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when no acceleration or payoffs exist', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', cmc: 1 })),
+        createDeckCard(createMockCard({ name: 'Shock', cmc: 1 })),
+        createDeckCard(createMockCard({ name: 'Grizzly Bears', type_line: 'Creature', cmc: 2 })),
+      ];
+
+      const result = detectManaAccelerationSynergy(cards);
 
       expect(result).toBeNull();
     });
