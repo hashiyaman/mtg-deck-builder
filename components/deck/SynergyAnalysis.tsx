@@ -1,0 +1,226 @@
+'use client';
+
+import { memo } from 'react';
+import { SynergyAnalysis as SynergyAnalysisType } from '@/lib/deck/synergyAnalyzer';
+import { Badge } from '@/components/ui/badge';
+import {
+  Sparkles,
+  Users,
+  Coins,
+  BookOpen,
+  PlusCircle,
+  Zap,
+  ArrowRightLeft,
+  TrendingUp
+} from 'lucide-react';
+
+interface SynergyAnalysisProps {
+  synergies: SynergyAnalysisType;
+}
+
+export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: SynergyAnalysisProps) {
+  const hasAnySynergy =
+    synergies.tribalSynergies.length > 0 ||
+    synergies.tokenSynergy !== null ||
+    synergies.graveyardSynergy !== null ||
+    synergies.counterSynergy !== null ||
+    synergies.keywordClusters.length > 0 ||
+    synergies.feedbackLoops.length > 0;
+
+  if (!hasAnySynergy) {
+    return (
+      <div className="border rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="h-5 w-5" />
+          <h3 className="font-semibold">シナジー分析</h3>
+        </div>
+        <p className="text-sm text-muted-foreground text-center py-8">
+          検出されたシナジーがありません
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg p-4">
+      {/* Header with overall score */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5" />
+          <h3 className="font-semibold">シナジー分析</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">総合スコア</span>
+          <Badge
+            variant={synergies.overallScore >= 7 ? 'default' : synergies.overallScore >= 5 ? 'secondary' : 'outline'}
+            className="text-base font-bold"
+          >
+            {synergies.overallScore}/10
+          </Badge>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {/* Feedback Loops */}
+        {synergies.feedbackLoops.length > 0 && (
+          <div className="border-l-4 border-l-purple-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowRightLeft className="h-4 w-4 text-purple-500" />
+              <h4 className="font-semibold text-sm">フィードバックループ（相互増幅）</h4>
+            </div>
+            <div className="space-y-2">
+              {synergies.feedbackLoops.map((loop, index) => (
+                <div key={index} className="bg-muted/30 rounded p-2 text-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-medium">
+                      {loop.cardA} ⇄ {loop.cardB}
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {loop.score}/10
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <div>• {loop.cardA}: {loop.triggerA} → {loop.outputA}</div>
+                    <div>• {loop.cardB}: {loop.triggerB} → {loop.outputB}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tribal Synergies */}
+        {synergies.tribalSynergies.length > 0 && (
+          <div className="border-l-4 border-l-blue-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="h-4 w-4 text-blue-500" />
+              <h4 className="font-semibold text-sm">部族シナジー</h4>
+            </div>
+            <div className="space-y-2">
+              {synergies.tribalSynergies.map((tribal, index) => (
+                <div key={index} className="bg-muted/30 rounded p-2 text-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-medium">
+                      {tribal.type} ({tribal.count}枚)
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {tribal.score}/10
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {tribal.cards.slice(0, 5).join(', ')}
+                    {tribal.cards.length > 5 && ` 他${tribal.cards.length - 5}枚`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Token Synergy */}
+        {synergies.tokenSynergy && (
+          <div className="border-l-4 border-l-green-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Coins className="h-4 w-4 text-green-500" />
+              <h4 className="font-semibold text-sm">トークンシナジー</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.tokenSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.tokenSynergy.producers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">生成: </span>
+                  {synergies.tokenSynergy.producers.join(', ')}
+                </div>
+              )}
+              {synergies.tokenSynergy.payoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">活用: </span>
+                  {synergies.tokenSynergy.payoffs.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Graveyard Synergy */}
+        {synergies.graveyardSynergy && (
+          <div className="border-l-4 border-l-gray-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-gray-500" />
+              <h4 className="font-semibold text-sm">墓地シナジー</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.graveyardSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.graveyardSynergy.graveyardFillers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">墓地肥やし: </span>
+                  {synergies.graveyardSynergy.graveyardFillers.slice(0, 3).join(', ')}
+                  {synergies.graveyardSynergy.graveyardFillers.length > 3 &&
+                    ` 他${synergies.graveyardSynergy.graveyardFillers.length - 3}枚`}
+                </div>
+              )}
+              {synergies.graveyardSynergy.graveyardPayoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">墓地利用: </span>
+                  {synergies.graveyardSynergy.graveyardPayoffs.slice(0, 3).join(', ')}
+                  {synergies.graveyardSynergy.graveyardPayoffs.length > 3 &&
+                    ` 他${synergies.graveyardSynergy.graveyardPayoffs.length - 3}枚`}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Counter Synergy */}
+        {synergies.counterSynergy && (
+          <div className="border-l-4 border-l-orange-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <PlusCircle className="h-4 w-4 text-orange-500" />
+              <h4 className="font-semibold text-sm">+1/+1カウンターシナジー</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.counterSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.counterSynergy.counterCards.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">カウンター: </span>
+                  {synergies.counterSynergy.counterCards.slice(0, 3).join(', ')}
+                  {synergies.counterSynergy.counterCards.length > 3 &&
+                    ` 他${synergies.counterSynergy.counterCards.length - 3}枚`}
+                </div>
+              )}
+              {synergies.counterSynergy.proliferateCards.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">増殖: </span>
+                  {synergies.counterSynergy.proliferateCards.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Keyword Clusters */}
+        {synergies.keywordClusters.length > 0 && (
+          <div className="border-l-4 border-l-yellow-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              <h4 className="font-semibold text-sm">キーワード集中</h4>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {synergies.keywordClusters.map((cluster, index) => (
+                <Badge key={index} variant="secondary" className="text-xs">
+                  {cluster.keyword} ({cluster.count}枚)
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});

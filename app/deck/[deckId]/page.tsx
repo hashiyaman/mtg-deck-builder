@@ -8,9 +8,11 @@ import { DeckCardList } from '@/components/deck/DeckCardList';
 import { DeckStats } from '@/components/deck/DeckStats';
 import { ManaCurve } from '@/components/deck/ManaCurve';
 import { ColorDistribution } from '@/components/deck/ColorDistribution';
+import { SynergyAnalysis } from '@/components/deck/SynergyAnalysis';
 import { DeckImport } from '@/components/deck/DeckImport';
 import { DeckExport } from '@/components/deck/DeckExport';
 import { CardDetail } from '@/components/cards/CardDetail';
+import { analyzeDeckSynergies } from '@/lib/deck/synergyAnalyzer';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -67,6 +69,12 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     if (!currentDeck) return null;
     return getDeckStats();
   }, [currentDeck, getDeckStats]);
+
+  // シナジー分析も同様にメモ化
+  const synergies = useMemo(() => {
+    if (!currentDeck) return null;
+    return analyzeDeckSynergies(currentDeck.mainboard);
+  }, [currentDeck]);
 
   // All hooks must be called before any conditional returns
   const handleSaveDeckInfo = useCallback(() => {
@@ -333,6 +341,7 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
               <ColorDistribution data={stats.colorDistribution} />
             </>
           )}
+          {synergies && <SynergyAnalysis synergies={synergies} />}
         </div>
       </div>
 
