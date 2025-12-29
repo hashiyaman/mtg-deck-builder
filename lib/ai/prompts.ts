@@ -298,6 +298,24 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // タップ/アンタップシナジー (Tap/Untap)
+  if (synergyAnalysis.tapUntapSynergy) {
+    const tu = synergyAnalysis.tapUntapSynergy;
+    synergyText += '\nタップ/アンタップシナジー (起動型能力活用型) (スコア:' + tu.score + '/10):\n';
+    if (tu.tapAbilities.length > 0) {
+      synergyText += `- タップ能力: ${tu.tapAbilities.join(', ')}\n`;
+    }
+    if (tu.untappers.length > 0) {
+      synergyText += `- アンタップ手段: ${tu.untappers.join(', ')}\n`;
+    }
+    if (tu.tapTriggers.length > 0) {
+      synergyText += `- タップ誘発: ${tu.tapTriggers.join(', ')}\n`;
+    }
+    if (tu.vigilanceCards.length > 0) {
+      synergyText += `- 警戒持ち: ${tu.vigilanceCards.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

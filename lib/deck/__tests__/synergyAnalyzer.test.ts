@@ -11,6 +11,7 @@ import {
   detectManaAccelerationSynergy,
   detectSpellslingerSynergy,
   detectAttackTriggerSynergy,
+  detectTapUntapSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1521,6 +1522,162 @@ describe('Synergy Analyzer', () => {
       ];
 
       const result = detectAttackTriggerSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectTapUntapSynergy', () => {
+    it('should detect full tap/untap strategy with all components', () => {
+      const cards: DeckCard[] = [
+        // Tap abilities
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 1),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap an untapped Wizard you control: Draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Grimoire', oracle_text: '{T}: Put a +1/+1 counter on target creature.' }), 2),
+        // Untappers
+        createDeckCard(createMockCard({ name: 'Thousand-Year Elixir', oracle_text: 'Untap target permanent.' }), 2),
+        createDeckCard(createMockCard({ name: 'Minamo', oracle_text: '{T}: Untap target legendary creature.' }), 1),
+        createDeckCard(createMockCard({ name: 'Aphetto Alchemist', oracle_text: '{T}: Untap target artifact or creature.' }), 4),
+        // Tap triggers
+        createDeckCard(createMockCard({ name: 'Bident of Thassa', oracle_text: 'Whenever a creature you control becomes tapped, draw a card.' }), 1),
+        createDeckCard(createMockCard({ name: 'King Macar', oracle_text: 'Inspired — Whenever King Macar becomes untapped, exile target creature.' }), 2),
+        // Vigilance
+        createDeckCard(createMockCard({ name: 'Serra Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 2),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.tapAbilities).toContain('Prodigal Sorcerer');
+      expect(result?.tapAbilities).toContain('Arcanis');
+      expect(result?.tapAbilities).toContain('Azami');
+      expect(result?.untappers).toContain('Thousand-Year Elixir');
+      expect(result?.untappers).toContain('Aphetto Alchemist');
+      expect(result?.tapTriggers).toContain('Bident of Thassa');
+      expect(result?.tapTriggers).toContain('King Macar');
+      expect(result?.vigilanceCards).toContain('Serra Angel');
+      expect(result?.score).toBeGreaterThanOrEqual(7);
+    });
+
+    it('should detect tap abilities excluding mana abilities', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Llanowar Elves', oracle_text: '{T}: Add {G}.' }), 4),
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap a Wizard: Draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Cephalid Looter', oracle_text: '{T}: Draw a card, then discard a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Seedborn Muse', oracle_text: 'Untap all permanents you control during each untap step.' }), 2),
+        createDeckCard(createMockCard({ name: 'Kiora\'s Follower', oracle_text: '{T}: Untap target permanent.' }), 2),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.tapAbilities).not.toContain('Llanowar Elves'); // Mana ability should be excluded
+      expect(result?.tapAbilities).toContain('Prodigal Sorcerer');
+      expect(result?.tapAbilities).toContain('Arcanis');
+    });
+
+    it('should detect untap effects', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap a Wizard: Draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Cephalid Looter', oracle_text: '{T}: Draw a card, then discard a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Seedborn Muse', oracle_text: 'Untap all permanents you control during each untap step.' }), 2),
+        createDeckCard(createMockCard({ name: 'Kiora\'s Follower', oracle_text: '{T}: Untap another target permanent.' }), 4),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.untappers).toContain('Seedborn Muse');
+      expect(result?.untappers).toContain('Kiora\'s Follower');
+    });
+
+    it('should detect tap triggers and Inspired', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap a Wizard: Draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Bident of Thassa', oracle_text: 'Whenever a creature you control becomes tapped, draw a card.' }), 1),
+        createDeckCard(createMockCard({ name: 'King Macar', oracle_text: 'Inspired — Whenever King Macar becomes untapped, exile target creature.' }), 2),
+        createDeckCard(createMockCard({ name: 'Seedborn Muse', oracle_text: 'Untap all permanents.' }), 2),
+        createDeckCard(createMockCard({ name: 'Kiora\'s Follower', oracle_text: '{T}: Untap target permanent.' }), 2),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.tapTriggers).toContain('Bident of Thassa');
+      expect(result?.tapTriggers).toContain('King Macar');
+    });
+
+    it('should detect vigilance on creatures', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 2),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap a Wizard: Draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Cephalid Looter', oracle_text: '{T}: Draw a card, then discard a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Serra Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 4),
+        createDeckCard(createMockCard({ name: 'Baneslayer Angel', type_line: 'Creature', keywords: ['Flying', 'Vigilance'] }), 2),
+        createDeckCard(createMockCard({ name: 'Always Watching', oracle_text: 'Creatures you control have vigilance.' }), 2),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.vigilanceCards).toContain('Serra Angel');
+      expect(result?.vigilanceCards).toContain('Baneslayer Angel');
+      // Always Watching grants vigilance but isn't a creature, so may be in vigilanceCards or not depending on implementation
+    });
+
+    it('should assign high score for dedicated tap/untap deck', () => {
+      const cards: DeckCard[] = [
+        // 8+ tap abilities
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 1),
+        createDeckCard(createMockCard({ name: 'Azami', oracle_text: 'Tap a Wizard: Draw a card.' }), 1),
+        createDeckCard(createMockCard({ name: 'Grimoire', oracle_text: '{T}: Put a counter on target creature.' }), 2),
+        createDeckCard(createMockCard({ name: 'Cephalid Looter', oracle_text: '{T}: Draw a card, then discard a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Merfolk Looter', oracle_text: '{T}: Draw a card, then discard a card.' }), 4),
+        // 4+ untappers
+        createDeckCard(createMockCard({ name: 'Seedborn Muse', oracle_text: 'Untap all permanents during each untap step.' }), 1),
+        createDeckCard(createMockCard({ name: 'Kiora\'s Follower', oracle_text: '{T}: Untap target permanent.' }), 4),
+        createDeckCard(createMockCard({ name: 'Aphetto Alchemist', oracle_text: '{T}: Untap target artifact or creature.' }), 4),
+        createDeckCard(createMockCard({ name: 'Thousand-Year Elixir', oracle_text: 'Untap target permanent.' }), 2),
+        // 2+ tap triggers
+        createDeckCard(createMockCard({ name: 'Bident of Thassa', oracle_text: 'Whenever a creature becomes tapped, draw a card.' }), 1),
+        createDeckCard(createMockCard({ name: 'King Macar', oracle_text: 'Inspired — When this becomes untapped, exile target.' }), 2),
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient tap abilities', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 2),
+        createDeckCard(createMockCard({ name: 'Seedborn Muse', oracle_text: 'Untap all permanents.' }), 2),
+        // Only 2 tap abilities, below threshold of 4
+      ];
+
+      const result = detectTapUntapSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when insufficient enablers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Prodigal Sorcerer', oracle_text: '{T}: Deal 1 damage to any target.' }), 4),
+        createDeckCard(createMockCard({ name: 'Arcanis', oracle_text: '{T}: Draw three cards.' }), 2),
+        // 6 tap abilities but no untappers or vigilance
+      ];
+
+      const result = detectTapUntapSynergy(cards);
 
       expect(result).toBeNull();
     });

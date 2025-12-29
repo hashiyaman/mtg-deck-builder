@@ -90,6 +90,14 @@ export interface AttackTriggerSynergy {
   score: number; // 1-10
 }
 
+export interface TapUntapSynergy {
+  tapAbilities: string[]; // Cards with tap abilities (non-mana)
+  untappers: string[]; // Cards that untap permanents
+  tapTriggers: string[]; // Cards with tap/untap triggers (Inspired, etc.)
+  vigilanceCards: string[]; // Cards with vigilance
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -102,6 +110,7 @@ export interface SynergyAnalysis {
   manaAccelerationSynergy: ManaAccelerationSynergy | null;
   spellslingerSynergy: SpellslingerSynergy | null;
   attackTriggerSynergy: AttackTriggerSynergy | null;
+  tapUntapSynergy: TapUntapSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -901,6 +910,133 @@ export function detectAttackTriggerSynergy(cards: DeckCard[]): AttackTriggerSyne
 }
 
 /**
+ * Detects tap/untap synergies (tap abilities, untappers, tap triggers)
+ */
+export function detectTapUntapSynergy(cards: DeckCard[]): TapUntapSynergy | null {
+  const tapAbilities: string[] = [];
+  const untappers: string[] = [];
+  const tapTriggers: string[] = [];
+  const vigilanceCards: string[] = [];
+
+  // Tap ability patterns (non-mana abilities)
+  const tapAbilityPatterns = [
+    /{T}:(?!.*add)/i, // {T}: but not "add mana"
+    /\{T\}.*draw/i,
+    /\{T\}.*deal.*damage/i,
+    /\{T\}.*destroy/i,
+    /\{T\}.*exile/i,
+    /\{T\}.*search/i,
+    /\{T\}.*return/i,
+    /\{T\}.*create/i,
+    /\{T\}.*put/i,
+    /\{T\}.*counter/i,
+    /\{T\}.*gain/i,
+    /\{T\}.*target/i,
+    /tap.*creature.*:/i, // "Tap an untapped creature:", "Tap target creature:"
+    /tap.*permanent.*:/i, // "Tap an untapped permanent:"
+    /tap.*wizard.*:/i, // "Tap a Wizard:", "Tap an untapped Wizard:"
+    /tap.*artifact.*:/i, // "Tap an artifact:"
+  ];
+
+  // Untap patterns
+  const untapPatterns = [
+    /untap.*permanent/i,
+    /untap.*creature/i,
+    /untap.*artifact/i,
+    /untap all/i,
+    /untap target/i,
+    /untap.*you control/i,
+    /doesn't untap/i, // Also relevant for untap synergies
+  ];
+
+  // Tap trigger patterns (Inspired, etc.)
+  const tapTriggerPatterns = [
+    /whenever.*becomes tapped/i,
+    /when.*becomes tapped/i,
+    /whenever.*taps/i,
+    /when.*taps/i,
+    /inspired/i, // Inspired mechanic
+    /whenever.*becomes untapped/i,
+    /when.*becomes untapped/i,
+  ];
+
+  for (const deckCard of cards) {
+    const card = deckCard.card;
+    const oracle = card.oracle_text || '';
+    const name = card.name;
+
+    // Check for tap abilities (excluding pure mana abilities)
+    const hasTapAbility = tapAbilityPatterns.some((pattern) => pattern.test(oracle));
+    if (hasTapAbility && !tapAbilities.includes(name)) {
+      tapAbilities.push(name);
+    }
+
+    // Check for untap effects
+    const hasUntapEffect = untapPatterns.some((pattern) => pattern.test(oracle));
+    if (hasUntapEffect && !untappers.includes(name)) {
+      untappers.push(name);
+    }
+
+    // Check for tap triggers
+    const hasTapTrigger = tapTriggerPatterns.some((pattern) => pattern.test(oracle));
+    if (hasTapTrigger && !tapTriggers.includes(name)) {
+      tapTriggers.push(name);
+    }
+
+    // Check for vigilance
+    const hasVigilance = card.keywords?.includes('Vigilance') || /vigilance/i.test(oracle);
+    if (hasVigilance && card.type_line?.includes('Creature') && !vigilanceCards.includes(name)) {
+      vigilanceCards.push(name);
+    }
+  }
+
+  // Calculate total tap matters cards
+  const totalTapMatters = tapAbilities.length + tapTriggers.length;
+  const totalEnablers = untappers.length + vigilanceCards.length;
+
+  // Require at least 4 tap-matters cards and 2 enablers for synergy
+  if (totalTapMatters < 4 || totalEnablers < 2) {
+    return null;
+  }
+
+  // Calculate score (1-10)
+  let score = 4; // Base score
+
+  // Synergy diversity bonus
+  const synergyTypes = [
+    tapAbilities.length > 0,
+    untappers.length > 0,
+    tapTriggers.length > 0,
+    vigilanceCards.length > 0,
+  ].filter(Boolean).length;
+
+  if (synergyTypes >= 4) {
+    score += 1; // All synergy types present
+  }
+
+  // Score based on tap-matters cards
+  if (tapAbilities.length >= 8 && untappers.length >= 4 && tapTriggers.length >= 2) {
+    score = 9; // Dedicated tap/untap deck
+  } else if (tapAbilities.length >= 6 && (untappers.length >= 3 || tapTriggers.length >= 2)) {
+    score = 8; // Strong tap/untap theme
+  } else if (tapAbilities.length >= 5 && totalEnablers >= 4) {
+    score = 7; // Solid tap/untap synergy
+  } else if (totalTapMatters >= 6 && totalEnablers >= 3) {
+    score = 6; // Moderate tap/untap theme
+  } else if (totalTapMatters >= 4 && totalEnablers >= 2) {
+    score = 5; // Light tap/untap theme
+  }
+
+  return {
+    tapAbilities,
+    untappers,
+    tapTriggers,
+    vigilanceCards,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1210,6 +1346,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const manaAccelerationSynergy = detectManaAccelerationSynergy(cards);
   const spellslingerSynergy = detectSpellslingerSynergy(cards);
   const attackTriggerSynergy = detectAttackTriggerSynergy(cards);
+  const tapUntapSynergy = detectTapUntapSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1275,6 +1412,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Tap/untap synergy
+  if (tapUntapSynergy && tapUntapSynergy.score > 0) {
+    overallScore += tapUntapSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1299,6 +1442,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     manaAccelerationSynergy,
     spellslingerSynergy,
     attackTriggerSynergy,
+    tapUntapSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

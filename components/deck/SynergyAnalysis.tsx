@@ -16,7 +16,8 @@ import {
   Heart,
   TreeDeciduous,
   Wand2,
-  Swords
+  Swords,
+  RefreshCw
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -35,7 +36,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.sacrificeSynergy !== null ||
     synergies.manaAccelerationSynergy !== null ||
     synergies.spellslingerSynergy !== null ||
-    synergies.attackTriggerSynergy !== null;
+    synergies.attackTriggerSynergy !== null ||
+    synergies.tapUntapSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -424,6 +426,45 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">攻撃補助: </span>
                   {synergies.attackTriggerSynergy.enablers.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tap/Untap Synergy */}
+        {synergies.tapUntapSynergy && (
+          <div className="border-l-4 border-l-cyan-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <RefreshCw className="h-4 w-4 text-cyan-500" />
+              <h4 className="font-semibold text-sm">タップ/アンタップ（起動型能力活用）</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.tapUntapSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              {synergies.tapUntapSynergy.tapAbilities.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">タップ能力: </span>
+                  {synergies.tapUntapSynergy.tapAbilities.join(', ')}
+                </div>
+              )}
+              {synergies.tapUntapSynergy.untappers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">アンタップ手段: </span>
+                  {synergies.tapUntapSynergy.untappers.join(', ')}
+                </div>
+              )}
+              {synergies.tapUntapSynergy.tapTriggers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">タップ誘発: </span>
+                  {synergies.tapUntapSynergy.tapTriggers.join(', ')}
+                </div>
+              )}
+              {synergies.tapUntapSynergy.vigilanceCards.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">警戒持ち: </span>
+                  {synergies.tapUntapSynergy.vigilanceCards.join(', ')}
                 </div>
               )}
             </div>
