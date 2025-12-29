@@ -10,6 +10,7 @@ interface DeckState {
   decks: Deck[];
   currentDeck: Deck | null;
   isLoading: boolean;
+  enrichmentProgress: { current: number; total: number } | null;
 
   // Actions
   loadAllDecks: () => void;
@@ -180,6 +181,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   decks: [],
   currentDeck: null,
   isLoading: false,
+  enrichmentProgress: null,
 
   // Load all decks from localStorage
   loadAllDecks: () => {
@@ -398,35 +400,38 @@ export const useDeckStore = create<DeckState>((set, get) => ({
     console.log('[enrichAllCardsWithJapanese] Mainboard cards:', currentDeck.mainboard.length);
     console.log('[enrichAllCardsWithJapanese] Sideboard cards:', currentDeck.sideboard.length);
 
-    set({ isLoading: true });
+    const totalCards = currentDeck.mainboard.length + currentDeck.sideboard.length;
+    set({ isLoading: true, enrichmentProgress: { current: 0, total: totalCards } });
 
     try {
-      // Process mainboard cards
+      // Process mainboard cards sequentially to track progress
       console.log('[enrichAllCardsWithJapanese] Processing mainboard...');
-      const enrichedMainboard = await Promise.all(
-        currentDeck.mainboard.map(async (deckCard, index) => {
-          console.log(`[enrichAllCardsWithJapanese] Processing mainboard card ${index + 1}/${currentDeck.mainboard.length}: ${deckCard.card.name}`);
-          const enrichedCard = await enrichWithJapanese(deckCard.card);
-          console.log(`[enrichAllCardsWithJapanese] Enriched: ${deckCard.card.name} -> ${enrichedCard.printed_name || 'No Japanese version'}`);
-          return {
-            ...deckCard,
-            card: enrichedCard,
-          };
-        })
-      );
+      const enrichedMainboard: DeckCard[] = [];
+      for (let i = 0; i < currentDeck.mainboard.length; i++) {
+        const deckCard = currentDeck.mainboard[i];
+        console.log(`[enrichAllCardsWithJapanese] Processing mainboard card ${i + 1}/${currentDeck.mainboard.length}: ${deckCard.card.name}`);
+        const enrichedCard = await enrichWithJapanese(deckCard.card);
+        console.log(`[enrichAllCardsWithJapanese] Enriched: ${deckCard.card.name} -> ${enrichedCard.printed_name || 'No Japanese version'}`);
+        enrichedMainboard.push({
+          ...deckCard,
+          card: enrichedCard,
+        });
+        set({ enrichmentProgress: { current: i + 1, total: totalCards } });
+      }
 
-      // Process sideboard cards
+      // Process sideboard cards sequentially to track progress
       console.log('[enrichAllCardsWithJapanese] Processing sideboard...');
-      const enrichedSideboard = await Promise.all(
-        currentDeck.sideboard.map(async (deckCard, index) => {
-          console.log(`[enrichAllCardsWithJapanese] Processing sideboard card ${index + 1}/${currentDeck.sideboard.length}: ${deckCard.card.name}`);
-          const enrichedCard = await enrichWithJapanese(deckCard.card);
-          return {
-            ...deckCard,
-            card: enrichedCard,
-          };
-        })
-      );
+      const enrichedSideboard: DeckCard[] = [];
+      for (let i = 0; i < currentDeck.sideboard.length; i++) {
+        const deckCard = currentDeck.sideboard[i];
+        console.log(`[enrichAllCardsWithJapanese] Processing sideboard card ${i + 1}/${currentDeck.sideboard.length}: ${deckCard.card.name}`);
+        const enrichedCard = await enrichWithJapanese(deckCard.card);
+        enrichedSideboard.push({
+          ...deckCard,
+          card: enrichedCard,
+        });
+        set({ enrichmentProgress: { current: currentDeck.mainboard.length + i + 1, total: totalCards } });
+      }
 
       const updatedDeck = {
         ...currentDeck,
@@ -446,12 +451,13 @@ export const useDeckStore = create<DeckState>((set, get) => ({
         decks,
         currentDeck: updatedDeck,
         isLoading: false,
+        enrichmentProgress: null,
       });
 
       console.log('[enrichAllCardsWithJapanese] Completed successfully');
     } catch (error) {
       console.error('[enrichAllCardsWithJapanese] Error:', error);
-      set({ isLoading: false });
+      set({ isLoading: false, enrichmentProgress: null });
       throw error;
     }
   },

@@ -19,6 +19,7 @@ export interface Card {
   legalities: Record<Format, Legality>;
   set: string;                     // セットコード
   set_name: string;                // セット名
+  collector_number?: string;       // コレクター番号
   rarity: Rarity;                  // レアリティ
   artist?: string;                 // イラストレーター
   flavor_text?: string;            // フレーバーテキスト

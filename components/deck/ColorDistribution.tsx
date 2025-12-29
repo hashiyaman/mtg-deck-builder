@@ -37,6 +37,8 @@ export function ColorDistribution({ data }: ColorDistributionProps) {
     );
   }
 
+  const totalCards = chartData.reduce((sum, item) => sum + item.value, 0);
+
   return (
     <div className="border rounded-lg p-4">
       <h3 className="font-semibold mb-4">色分布</h3>
@@ -64,6 +66,26 @@ export function ColorDistribution({ data }: ColorDistributionProps) {
           />
         </PieChart>
       </ResponsiveContainer>
+      {/* Text-based color distribution for accessibility */}
+      <div className="mt-4 pt-4 border-t">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {chartData.map((item) => (
+            <div key={item.name} className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full border"
+                  style={{ backgroundColor: item.color }}
+                  aria-hidden="true"
+                />
+                <span>{item.name}</span>
+              </span>
+              <span className="font-semibold">
+                {item.value} ({((item.value / totalCards) * 100).toFixed(0)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { DeckStats } from '@/components/deck/DeckStats';
 import { ManaCurve } from '@/components/deck/ManaCurve';
 import { ColorDistribution } from '@/components/deck/ColorDistribution';
 import { DeckImport } from '@/components/deck/DeckImport';
+import { DeckExport } from '@/components/deck/DeckExport';
 import { CardDetail } from '@/components/cards/CardDetail';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Save, FileUp, Languages, Sparkles, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface DeckEditorPageProps {
   params: Promise<{ deckId: string }>;
@@ -30,7 +32,7 @@ interface DeckEditorPageProps {
 export default function DeckEditorPage({ params }: DeckEditorPageProps) {
   const { deckId } = use(params);
   const router = useRouter();
-  const { currentDeck, loadDeck, updateQuantity, removeCard, updateDeckInfo, getDeckStats, enrichAllCardsWithJapanese, isLoading } = useDeckStore();
+  const { currentDeck, loadDeck, updateQuantity, removeCard, updateDeckInfo, getDeckStats, enrichAllCardsWithJapanese, isLoading, enrichmentProgress } = useDeckStore();
   const { selectedCard, selectCard } = useUIStore();
   const [deckName, setDeckName] = useState('');
   const [deckDescription, setDeckDescription] = useState('');
@@ -88,10 +90,10 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
     try {
       await enrichAllCardsWithJapanese();
       console.log('Japanese enrichment completed successfully');
-      alert('日本語情報の取得が完了しました！');
+      toast.success('日本語情報の取得が完了しました！');
     } catch (error) {
       console.error('Error enriching with Japanese:', error);
-      alert('エラーが発生しました。一部のカードの日本語情報を取得できませんでした。');
+      toast.error('エラーが発生しました。一部のカードの日本語情報を取得できませんでした。');
     } finally {
       setIsEnriching(false);
     }
@@ -245,12 +247,17 @@ export default function DeckEditorPage({ params }: DeckEditorPageProps) {
             disabled={isEnriching}
           >
             <Languages className="h-4 w-4 mr-2" />
-            {isEnriching ? '取得中...' : '日本語取得'}
+            {enrichmentProgress
+              ? `取得中... (${enrichmentProgress.current}/${enrichmentProgress.total})`
+              : isEnriching
+              ? '取得中...'
+              : '日本語取得'}
           </Button>
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <FileUp className="h-4 w-4 mr-2" />
             インポート
           </Button>
+          <DeckExport deck={currentDeck} />
           <Button onClick={handleSaveDeckInfo}>
             <Save className="h-4 w-4 mr-2" />
             保存

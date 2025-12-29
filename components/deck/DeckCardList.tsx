@@ -9,6 +9,22 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { groupCardsByType } from '@/lib/utils/cardTypeUtils';
 import { Minus, Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
@@ -23,6 +39,8 @@ interface DeckCardListProps {
 export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }: DeckCardListProps) {
   // 各カードタイプの開閉状態を管理（デフォルトは全て開く）
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Confirmation dialog state
+  const [cardToRemove, setCardToRemove] = useState<{ id: string; name: string; quantity: number } | null>(null);
 
   // カードをタイプ別にグループ化
   const cardGroups = groupCardsByType(cards);
@@ -59,8 +77,9 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
   };
 
   return (
-    <div className="space-y-4">
-      {cardGroups.map((group) => {
+    <TooltipProvider>
+      <div className="space-y-4">
+        {cardGroups.map((group) => {
         const isOpen = openGroups[group.type] !== false; // デフォルトはtrue
 
         return (
@@ -149,23 +168,36 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
                           className="h-8 w-8 p-0"
                           onClick={() => onQuantityChange(card.id, quantity - 1)}
                           disabled={quantity <= 1}
+                          aria-label={`Decrease quantity of ${displayName}`}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
                         <span className="w-8 text-center font-semibold">{quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => onQuantityChange(card.id, quantity + 1)}
-                          disabled={
-                            quantity >= 4 &&
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => onQuantityChange(card.id, quantity + 1)}
+                              disabled={
+                                quantity >= 4 &&
+                                !card.type_line.toLowerCase().includes('basic') &&
+                                !card.type_line.toLowerCase().includes('snow')
+                              }
+                              aria-label={`Increase quantity of ${displayName}`}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          {quantity >= 4 &&
                             !card.type_line.toLowerCase().includes('basic') &&
-                            !card.type_line.toLowerCase().includes('snow')
-                          }
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                            !card.type_line.toLowerCase().includes('snow') && (
+                              <TooltipContent>
+                                <p>基本土地以外は4枚まで</p>
+                              </TooltipContent>
+                            )}
+                        </Tooltip>
                       </div>
 
                       {/* Remove Button */}
@@ -173,7 +205,8 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => onRemove(card.id)}
+                        onClick={() => setCardToRemove({ id: card.id, name: displayName, quantity })}
+                        aria-label={`Remove ${displayName}`}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -185,6 +218,37 @@ export function DeckCardList({ cards, onQuantityChange, onRemove, onCardClick }:
           </Collapsible>
         );
       })}
-    </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!cardToRemove} onOpenChange={(open) => !open && setCardToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>カードを削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cardToRemove && (
+                <>
+                  <strong>{cardToRemove.name}</strong> を {cardToRemove.quantity}枚 削除します。
+                  この操作は元に戻すことができます。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (cardToRemove) {
+                  onRemove(cardToRemove.id);
+                  setCardToRemove(null);
+                }
+              }}
+            >
+              削除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      </div>
+    </TooltipProvider>
   );
 }
