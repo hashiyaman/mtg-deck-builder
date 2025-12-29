@@ -44,6 +44,17 @@ export interface FeedbackLoop {
   score: number; // 1-10
 }
 
+export interface ThresholdSynergy {
+  type: 'metalcraft' | 'delirium' | 'domain' | 'threshold' | 'descend';
+  name: string; // Display name
+  requiredCount: number; // Threshold value
+  currentCount: number; // Actual count in deck
+  enablers: string[]; // Cards that help achieve threshold
+  payoffs: string[]; // Cards that benefit from threshold
+  achievementLikelihood: 'high' | 'medium' | 'low'; // Simple estimate
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -51,6 +62,7 @@ export interface SynergyAnalysis {
   counterSynergy: CounterSynergy | null;
   keywordClusters: KeywordCluster[];
   feedbackLoops: FeedbackLoop[];
+  thresholdSynergies: ThresholdSynergy[];
   overallScore: number; // 1-10
 }
 
@@ -350,6 +362,195 @@ export function detectKeywordClusters(cards: DeckCard[]): KeywordCluster[] {
 }
 
 /**
+ * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
+ */
+export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
+  const synergies: ThresholdSynergy[] = [];
+
+  // 1. Metalcraft (3+ artifacts)
+  const artifacts = cards.filter((dc) => dc.card.type_line.toLowerCase().includes('artifact'));
+  const artifactCount = artifacts.reduce((sum, dc) => sum + dc.quantity, 0);
+  const metalcraftPayoffs = cards.filter((dc) =>
+    /metalcraft|artifact.*control/i.test(dc.card.oracle_text || '')
+  );
+
+  if (artifactCount >= 3 || metalcraftPayoffs.length > 0) {
+    let likelihood: 'high' | 'medium' | 'low' = 'low';
+    if (artifactCount >= 12) likelihood = 'high';
+    else if (artifactCount >= 6) likelihood = 'medium';
+
+    let score = 0;
+    if (artifactCount >= 3 && metalcraftPayoffs.length >= 2) score = 8;
+    else if (artifactCount >= 3 && metalcraftPayoffs.length >= 1) score = 6;
+    else if (artifactCount >= 3) score = 4;
+
+    if (score > 0 || metalcraftPayoffs.length > 0) {
+      synergies.push({
+        type: 'metalcraft',
+        name: '金属術 (Metalcraft)',
+        requiredCount: 3,
+        currentCount: artifactCount,
+        enablers: artifacts.map((dc) => dc.card.name),
+        payoffs: metalcraftPayoffs.map((dc) => dc.card.name),
+        achievementLikelihood: likelihood,
+        score,
+      });
+    }
+  }
+
+  // 2. Delirium (4+ card types in graveyard)
+  const cardTypes = new Set<string>();
+  cards.forEach((dc) => {
+    const typeLine = dc.card.type_line.toLowerCase();
+    if (typeLine.includes('artifact')) cardTypes.add('Artifact');
+    if (typeLine.includes('creature')) cardTypes.add('Creature');
+    if (typeLine.includes('enchantment')) cardTypes.add('Enchantment');
+    if (typeLine.includes('instant')) cardTypes.add('Instant');
+    if (typeLine.includes('land')) cardTypes.add('Land');
+    if (typeLine.includes('planeswalker')) cardTypes.add('Planeswalker');
+    if (typeLine.includes('sorcery')) cardTypes.add('Sorcery');
+  });
+
+  const deliriumPayoffs = cards.filter((dc) =>
+    /delirium/i.test(dc.card.oracle_text || '')
+  );
+  const graveyardFillers = cards.filter((dc) =>
+    /mill|discard|sacrifice|fetch/i.test(dc.card.oracle_text || '')
+  );
+
+  if (cardTypes.size >= 4 || deliriumPayoffs.length > 0) {
+    let likelihood: 'high' | 'medium' | 'low' = 'low';
+    if (cardTypes.size >= 6 && graveyardFillers.length >= 4) likelihood = 'high';
+    else if (cardTypes.size >= 5 && graveyardFillers.length >= 2) likelihood = 'medium';
+
+    let score = 0;
+    if (cardTypes.size >= 5 && deliriumPayoffs.length >= 2 && graveyardFillers.length >= 3) score = 9;
+    else if (cardTypes.size >= 4 && deliriumPayoffs.length >= 1 && graveyardFillers.length >= 2) score = 7;
+    else if (cardTypes.size >= 4 && deliriumPayoffs.length >= 1) score = 5;
+
+    if (score > 0 || deliriumPayoffs.length > 0) {
+      synergies.push({
+        type: 'delirium',
+        name: '昂揚 (Delirium)',
+        requiredCount: 4,
+        currentCount: cardTypes.size,
+        enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
+        payoffs: deliriumPayoffs.map((dc) => dc.card.name),
+        achievementLikelihood: likelihood,
+        score,
+      });
+    }
+  }
+
+  // 3. Domain (basic land types)
+  const basicLandTypes = new Set<string>();
+  cards.forEach((dc) => {
+    const oracleText = dc.card.oracle_text || '';
+    const typeLine = dc.card.type_line.toLowerCase();
+
+    // Check for basic land types in type line or oracle text
+    if (typeLine.includes('plains') || /\bplains\b/i.test(oracleText)) basicLandTypes.add('Plains');
+    if (typeLine.includes('island') || /\bisland\b/i.test(oracleText)) basicLandTypes.add('Island');
+    if (typeLine.includes('swamp') || /\bswamp\b/i.test(oracleText)) basicLandTypes.add('Swamp');
+    if (typeLine.includes('mountain') || /\bmountain\b/i.test(oracleText)) basicLandTypes.add('Mountain');
+    if (typeLine.includes('forest') || /\bforest\b/i.test(oracleText)) basicLandTypes.add('Forest');
+  });
+
+  const domainPayoffs = cards.filter((dc) =>
+    /domain/i.test(dc.card.oracle_text || '')
+  );
+  const domainEnablers = cards.filter((dc) =>
+    /search.*basic land|fetch/i.test(dc.card.oracle_text || '') ||
+    dc.card.type_line.toLowerCase().includes('land')
+  );
+
+  if (basicLandTypes.size >= 3 || domainPayoffs.length > 0) {
+    let likelihood: 'high' | 'medium' | 'low' = 'low';
+    if (basicLandTypes.size >= 5) likelihood = 'high';
+    else if (basicLandTypes.size >= 4) likelihood = 'medium';
+
+    let score = 0;
+    if (basicLandTypes.size >= 5 && domainPayoffs.length >= 2) score = 9;
+    else if (basicLandTypes.size >= 4 && domainPayoffs.length >= 1) score = 7;
+    else if (basicLandTypes.size >= 3 && domainPayoffs.length >= 1) score = 5;
+
+    if (score > 0 || domainPayoffs.length > 0) {
+      synergies.push({
+        type: 'domain',
+        name: '領域 (Domain)',
+        requiredCount: 5,
+        currentCount: basicLandTypes.size,
+        enablers: domainEnablers.map((dc) => dc.card.name).slice(0, 5),
+        payoffs: domainPayoffs.map((dc) => dc.card.name),
+        achievementLikelihood: likelihood,
+        score,
+      });
+    }
+  }
+
+  // 4. Threshold (7+ cards in graveyard)
+  const thresholdPayoffs = cards.filter((dc) =>
+    /threshold/i.test(dc.card.oracle_text || '')
+  );
+
+  if (thresholdPayoffs.length > 0) {
+    // Use graveyard fillers from delirium detection
+    const fillerCount = graveyardFillers.length;
+
+    let likelihood: 'high' | 'medium' | 'low' = 'low';
+    if (fillerCount >= 6) likelihood = 'high';
+    else if (fillerCount >= 3) likelihood = 'medium';
+
+    let score = 0;
+    if (fillerCount >= 6 && thresholdPayoffs.length >= 2) score = 8;
+    else if (fillerCount >= 3 && thresholdPayoffs.length >= 1) score = 6;
+    else if (thresholdPayoffs.length >= 1) score = 4;
+
+    synergies.push({
+      type: 'threshold',
+      name: '絶対値 (Threshold)',
+      requiredCount: 7,
+      currentCount: fillerCount, // Approximate
+      enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
+      payoffs: thresholdPayoffs.map((dc) => dc.card.name),
+      achievementLikelihood: likelihood,
+      score,
+    });
+  }
+
+  // 5. Descend (8+ cards in graveyard)
+  const descendPayoffs = cards.filter((dc) =>
+    /descend|fathom/i.test(dc.card.oracle_text || '')
+  );
+
+  if (descendPayoffs.length > 0) {
+    const fillerCount = graveyardFillers.length;
+
+    let likelihood: 'high' | 'medium' | 'low' = 'low';
+    if (fillerCount >= 8) likelihood = 'high';
+    else if (fillerCount >= 4) likelihood = 'medium';
+
+    let score = 0;
+    if (fillerCount >= 8 && descendPayoffs.length >= 2) score = 8;
+    else if (fillerCount >= 4 && descendPayoffs.length >= 1) score = 6;
+    else if (descendPayoffs.length >= 1) score = 4;
+
+    synergies.push({
+      type: 'descend',
+      name: '下降 (Descend)',
+      requiredCount: 8,
+      currentCount: fillerCount, // Approximate
+      enablers: graveyardFillers.map((dc) => dc.card.name).slice(0, 5),
+      payoffs: descendPayoffs.map((dc) => dc.card.name),
+      achievementLikelihood: likelihood,
+      score,
+    });
+  }
+
+  return synergies;
+}
+
+/**
  * Detects feedback loops between cards (A triggers B, B triggers A)
  */
 export function detectFeedbackLoops(cards: DeckCard[]): FeedbackLoop[] {
@@ -465,6 +666,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const counterSynergy = detectCounterSynergy(cards);
   const keywordClusters = detectKeywordClusters(cards);
   const feedbackLoops = detectFeedbackLoops(cards);
+  const thresholdSynergies = detectThresholdSynergies(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -500,6 +702,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Threshold synergies
+  if (thresholdSynergies.length > 0) {
+    overallScore += Math.max(...thresholdSynergies.map((ts) => ts.score));
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -519,6 +727,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     counterSynergy,
     keywordClusters,
     feedbackLoops,
+    thresholdSynergies,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

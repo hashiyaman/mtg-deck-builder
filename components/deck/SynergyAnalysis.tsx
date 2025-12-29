@@ -11,7 +11,8 @@ import {
   PlusCircle,
   Zap,
   ArrowRightLeft,
-  TrendingUp
+  TrendingUp,
+  Target
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -25,7 +26,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.graveyardSynergy !== null ||
     synergies.counterSynergy !== null ||
     synergies.keywordClusters.length > 0 ||
-    synergies.feedbackLoops.length > 0;
+    synergies.feedbackLoops.length > 0 ||
+    synergies.thresholdSynergies.length > 0;
 
   if (!hasAnySynergy) {
     return (
@@ -200,6 +202,50 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                   {synergies.counterSynergy.proliferateCards.join(', ')}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Threshold Synergies */}
+        {synergies.thresholdSynergies.length > 0 && (
+          <div className="border-l-4 border-l-indigo-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="h-4 w-4 text-indigo-500" />
+              <h4 className="font-semibold text-sm">閾値シナジー</h4>
+            </div>
+            <div className="space-y-2">
+              {synergies.thresholdSynergies.map((threshold, index) => (
+                <div key={index} className="bg-muted/30 rounded p-2 text-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-medium">
+                      {threshold.name}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          threshold.achievementLikelihood === 'high'
+                            ? 'default'
+                            : threshold.achievementLikelihood === 'medium'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                        className="text-xs"
+                      >
+                        {threshold.currentCount}/{threshold.requiredCount}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {threshold.score}/10
+                      </Badge>
+                    </div>
+                  </div>
+                  {threshold.payoffs.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold">恩恵: </span>
+                      {threshold.payoffs.join(', ')}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

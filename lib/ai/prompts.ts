@@ -206,6 +206,20 @@ export function buildStrategyAnalysisPrompt(
     });
   }
 
+  // 閾値シナジー (Threshold-based)
+  if (synergyAnalysis.thresholdSynergies.length > 0) {
+    synergyText += '\n閾値シナジー:\n';
+    synergyAnalysis.thresholdSynergies.forEach((ts) => {
+      synergyText += `- ${ts.name}: ${ts.currentCount}/${ts.requiredCount} (スコア:${ts.score}/10, 達成可能性:${ts.achievementLikelihood})\n`;
+      if (ts.enablers.length > 0) {
+        synergyText += `  条件達成: ${ts.enablers.slice(0, 5).join(', ')}${ts.enablers.length > 5 ? ` 他${ts.enablers.length - 5}枚` : ''}\n`;
+      }
+      if (ts.payoffs.length > 0) {
+        synergyText += `  恩恵: ${ts.payoffs.join(', ')}\n`;
+      }
+    });
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

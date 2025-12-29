@@ -6,6 +6,7 @@ import {
   detectCounterSynergy,
   detectKeywordClusters,
   detectFeedbackLoops,
+  detectThresholdSynergies,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -587,6 +588,179 @@ describe('Synergy Analyzer', () => {
     });
   });
 
+  describe('detectThresholdSynergies', () => {
+    it('should detect Metalcraft synergy with 3+ artifacts', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Ornithopter', type_line: 'Artifact Creature — Thopter' }), 4),
+        createDeckCard(createMockCard({ name: 'Memnite', type_line: 'Artifact Creature — Construct' }), 4),
+        createDeckCard(createMockCard({ name: 'Springleaf Drum', type_line: 'Artifact' }), 4),
+        createDeckCard(
+          createMockCard({
+            name: 'Dispatch',
+            oracle_text: 'Metalcraft — If you control three or more artifacts, exile target creature.',
+          })
+        ),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      const metalcraft = result.find((s) => s.type === 'metalcraft');
+      expect(metalcraft).toBeDefined();
+      expect(metalcraft?.currentCount).toBe(12);
+      expect(metalcraft?.payoffs).toContain('Dispatch');
+      expect(metalcraft?.achievementLikelihood).toBe('high');
+      expect(metalcraft?.score).toBeGreaterThanOrEqual(6);
+    });
+
+    it('should detect Delirium synergy with 4+ card types', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Creature', type_line: 'Creature — Human' }), 4),
+        createDeckCard(createMockCard({ name: 'Instant', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Sorcery', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Enchantment', type_line: 'Enchantment' }), 4),
+        createDeckCard(createMockCard({ name: 'Artifact', type_line: 'Artifact' }), 4),
+        createDeckCard(
+          createMockCard({
+            name: 'Traverse the Ulvenwald',
+            oracle_text: 'Search for a basic land. Delirium — If there are four or more card types in your graveyard, search for a creature instead.',
+          })
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Grim Flayer',
+            oracle_text: 'Whenever Grim Flayer deals damage, mill 2. Delirium — gets +2/+2.',
+          })
+        ),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      const delirium = result.find((s) => s.type === 'delirium');
+      expect(delirium).toBeDefined();
+      expect(delirium?.currentCount).toBeGreaterThanOrEqual(4);
+      expect(delirium?.payoffs).toContain('Traverse the Ulvenwald');
+      expect(delirium?.payoffs).toContain('Grim Flayer');
+    });
+
+    it('should detect Domain synergy with 5 basic land types', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Plains', type_line: 'Basic Land — Plains' }), 3),
+        createDeckCard(createMockCard({ name: 'Island', type_line: 'Basic Land — Island' }), 3),
+        createDeckCard(createMockCard({ name: 'Swamp', type_line: 'Basic Land — Swamp' }), 3),
+        createDeckCard(createMockCard({ name: 'Mountain', type_line: 'Basic Land — Mountain' }), 3),
+        createDeckCard(createMockCard({ name: 'Forest', type_line: 'Basic Land — Forest' }), 3),
+        createDeckCard(
+          createMockCard({
+            name: 'Tribal Flames',
+            oracle_text: 'Domain — Deal X damage to any target, where X is the number of basic land types among lands you control.',
+          })
+        ),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      const domain = result.find((s) => s.type === 'domain');
+      expect(domain).toBeDefined();
+      expect(domain?.currentCount).toBe(5);
+      expect(domain?.payoffs).toContain('Tribal Flames');
+      expect(domain?.achievementLikelihood).toBe('high');
+    });
+
+    it('should detect Threshold synergy', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Werebear',
+            oracle_text: 'Threshold — Werebear gets +4/+4 if seven or more cards are in your graveyard.',
+          })
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Thought Scour',
+            oracle_text: 'Target player mills two cards. Draw a card.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      const threshold = result.find((s) => s.type === 'threshold');
+      expect(threshold).toBeDefined();
+      expect(threshold?.payoffs).toContain('Werebear');
+      expect(threshold?.requiredCount).toBe(7);
+    });
+
+    it('should detect Descend synergy', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(
+          createMockCard({
+            name: 'Fathom Fleet Swordjack',
+            oracle_text: 'Descend 8 — This gets +2/+2 as long as there are eight or more permanent cards in your graveyard.',
+          })
+        ),
+        createDeckCard(
+          createMockCard({
+            name: 'Stitchers Supplier',
+            oracle_text: 'When this enters, mill three cards.',
+          }),
+          4
+        ),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      const descend = result.find((s) => s.type === 'descend');
+      expect(descend).toBeDefined();
+      expect(descend?.payoffs).toContain('Fathom Fleet Swordjack');
+      expect(descend?.requiredCount).toBe(8);
+    });
+
+    it('should return empty array when no threshold synergies exist', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', oracle_text: 'Deal 3 damage.' })),
+        createDeckCard(createMockCard({ name: 'Shock', oracle_text: 'Deal 2 damage.' })),
+      ];
+
+      const result = detectThresholdSynergies(cards);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should assign higher scores for better synergy', () => {
+      const goodSynergy: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'AF1', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'AF2', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'AF3', type_line: 'Artifact' }), 4),
+        createDeckCard(
+          createMockCard({ name: 'Payoff1', oracle_text: 'Metalcraft — gets +2/+2.' }),
+          4
+        ),
+        createDeckCard(
+          createMockCard({ name: 'Payoff2', oracle_text: 'Metalcraft — draw a card.' }),
+          4
+        ),
+      ];
+
+      const weakSynergy: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'AF1', type_line: 'Artifact' }), 1),
+        createDeckCard(createMockCard({ name: 'AF2', type_line: 'Artifact' }), 1),
+        createDeckCard(createMockCard({ name: 'AF3', type_line: 'Artifact' }), 1),
+        createDeckCard(
+          createMockCard({ name: 'Payoff', oracle_text: 'Metalcraft — gets +1/+1.' })
+        ),
+      ];
+
+      const goodResult = detectThresholdSynergies(goodSynergy);
+      const weakResult = detectThresholdSynergies(weakSynergy);
+
+      const goodMetalcraft = goodResult.find((s) => s.type === 'metalcraft');
+      const weakMetalcraft = weakResult.find((s) => s.type === 'metalcraft');
+
+      expect(goodMetalcraft?.score).toBeGreaterThan(weakMetalcraft?.score || 0);
+    });
+  });
+
   describe('analyzeDeckSynergies', () => {
     it('should analyze all synergies and calculate overall score', () => {
       const cards: DeckCard[] = [
@@ -610,6 +784,7 @@ describe('Synergy Analyzer', () => {
       expect(result.tokenSynergy).not.toBeNull();
       expect(result.keywordClusters.length).toBeGreaterThan(0);
       expect(result.feedbackLoops).toBeDefined();
+      expect(result.thresholdSynergies).toBeDefined();
       expect(result.overallScore).toBeGreaterThan(0);
       expect(result.overallScore).toBeLessThanOrEqual(10);
     });
