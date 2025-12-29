@@ -6,6 +6,7 @@ import {
   OpeningHandStats,
   EarlyGameStats,
 } from '@/lib/deck/simulator';
+import { analyzeDeckSynergies } from '@/lib/deck/synergyAnalyzer';
 
 /**
  * 分析タイプ
@@ -135,6 +136,65 @@ export function buildStrategyAnalysisPrompt(
     .map((stat) => `${stat.cardName}(T3:${stat.turn3Rate.toFixed(1)}% T4:${stat.turn4Rate.toFixed(1)}%)`)
     .join(', ');
 
+  // シナジー分析を実行
+  const synergyAnalysis = analyzeDeckSynergies(deck.mainboard);
+
+  // シナジー情報を整形
+  let synergyText = '';
+
+  // 部族シナジー
+  if (synergyAnalysis.tribalSynergies.length > 0) {
+    synergyText += '\n部族シナジー:\n';
+    synergyAnalysis.tribalSynergies.forEach((tribal) => {
+      synergyText += `- ${tribal.type}: ${tribal.count}枚 (スコア:${tribal.score}/10)\n`;
+      synergyText += `  カード: ${tribal.cards.join(', ')}\n`;
+    });
+  }
+
+  // トークンシナジー
+  if (synergyAnalysis.tokenSynergy) {
+    const ts = synergyAnalysis.tokenSynergy;
+    synergyText += '\nトークンシナジー (スコア:' + ts.score + '/10):\n';
+    if (ts.producers.length > 0) {
+      synergyText += `- 生成: ${ts.producers.join(', ')}\n`;
+    }
+    if (ts.payoffs.length > 0) {
+      synergyText += `- 活用: ${ts.payoffs.join(', ')}\n`;
+    }
+  }
+
+  // 墓地シナジー
+  if (synergyAnalysis.graveyardSynergy) {
+    const gs = synergyAnalysis.graveyardSynergy;
+    synergyText += '\n墓地シナジー (スコア:' + gs.score + '/10):\n';
+    if (gs.graveyardFillers.length > 0) {
+      synergyText += `- 墓地肥やし: ${gs.graveyardFillers.join(', ')}\n`;
+    }
+    if (gs.graveyardPayoffs.length > 0) {
+      synergyText += `- 墓地利用: ${gs.graveyardPayoffs.join(', ')}\n`;
+    }
+  }
+
+  // カウンターシナジー
+  if (synergyAnalysis.counterSynergy) {
+    const cs = synergyAnalysis.counterSynergy;
+    synergyText += '\n+1/+1カウンターシナジー (スコア:' + cs.score + '/10):\n';
+    if (cs.counterCards.length > 0) {
+      synergyText += `- カウンター: ${cs.counterCards.join(', ')}\n`;
+    }
+    if (cs.proliferateCards.length > 0) {
+      synergyText += `- 増殖: ${cs.proliferateCards.join(', ')}\n`;
+    }
+  }
+
+  // キーワード集中
+  if (synergyAnalysis.keywordClusters.length > 0) {
+    synergyText += '\nキーワード集中:\n';
+    synergyAnalysis.keywordClusters.forEach((cluster) => {
+      synergyText += `- ${cluster.keyword}: ${cluster.count}枚 (${cluster.cards.join(', ')})\n`;
+    });
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:
@@ -146,11 +206,14 @@ ${mainboardList}
 
 キーカード到達率: ${keyCardText}
 
+デッキシナジースコア: ${synergyAnalysis.overallScore}/10
+${synergyText}
+
 以下を分析:
 1. アーキタイプ判定と構成の整合性
-2. 主要シナジー・コンボの特定と成立確率
+2. 検出されたシナジー・コンボの評価と成立確率、追加で強化できるシナジー
 3. ゲームプラン（序盤・中盤・終盤）と実現可能性
-4. 改善提案（追加・削除カード、メタゲーム評価）`;
+4. 改善提案（追加・削除カード、メタゲーム評価、シナジー強化案）`;
 }
 
 /**
