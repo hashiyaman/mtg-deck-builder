@@ -32,12 +32,25 @@ export interface KeywordCluster {
   cards: string[];
 }
 
+export interface FeedbackLoop {
+  loopType: string; // 'creature_lifegain', 'sacrifice_token', 'counter_growth', etc.
+  cardA: string;
+  cardB: string;
+  triggerA: string; // What A triggers on
+  outputA: string; // What A produces
+  triggerB: string; // What B triggers on
+  outputB: string; // What B produces
+  description: string;
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
   graveyardSynergy: GraveyardSynergy | null;
   counterSynergy: CounterSynergy | null;
   keywordClusters: KeywordCluster[];
+  feedbackLoops: FeedbackLoop[];
   overallScore: number; // 1-10
 }
 
@@ -337,6 +350,112 @@ export function detectKeywordClusters(cards: DeckCard[]): KeywordCluster[] {
 }
 
 /**
+ * Detects feedback loops between cards (A triggers B, B triggers A)
+ */
+export function detectFeedbackLoops(cards: DeckCard[]): FeedbackLoop[] {
+  const loops: FeedbackLoop[] = [];
+
+  // Define trigger-output patterns for each card
+  interface CardPattern {
+    card: DeckCard;
+    triggers: string[]; // What this card triggers on
+    outputs: string[];  // What this card produces
+  }
+
+  const cardPatterns: CardPattern[] = cards.map(({ card, quantity }) => {
+    const oracleText = card.oracle_text || '';
+    const triggers: string[] = [];
+    const outputs: string[] = [];
+
+    // Detect triggers (when/whenever clauses)
+    if (/whenever.*creature.*enters/i.test(oracleText)) {
+      triggers.push('creature_etb');
+    }
+    if (/whenever you gain life|whenever.*life.*gained/i.test(oracleText)) {
+      triggers.push('lifegain');
+    }
+    if (/whenever.*creature.*dies|whenever.*creature.*put into.*graveyard/i.test(oracleText)) {
+      triggers.push('creature_dies');
+    }
+    if (/whenever.*\+1\/\+1 counter.*placed|whenever.*counter.*put on/i.test(oracleText)) {
+      triggers.push('counter_placed');
+    }
+    if (/whenever you cast.*instant or sorcery|whenever you cast.*spell/i.test(oracleText)) {
+      triggers.push('spell_cast');
+    }
+    if (/whenever you draw|when.*draws a card/i.test(oracleText)) {
+      triggers.push('card_draw');
+    }
+    if (/whenever.*token.*created|whenever.*token.*enters/i.test(oracleText)) {
+      triggers.push('token_created');
+    }
+
+    // Detect outputs (what the card produces)
+    if (/create.*token/i.test(oracleText) || /put.*token.*onto/i.test(oracleText)) {
+      outputs.push('creature_token');
+      outputs.push('creature_etb'); // Tokens entering trigger ETB effects
+    }
+    if (/you gain.*life|gain.*life/i.test(oracleText)) {
+      outputs.push('lifegain');
+    }
+    if (/draw.*card/i.test(oracleText)) {
+      outputs.push('card_draw');
+    }
+    if (/put.*\+1\/\+1 counter/i.test(oracleText) || /enters.*with.*\+1\/\+1 counter/i.test(oracleText)) {
+      outputs.push('counter_placed');
+    }
+    if (/sacrifice.*creature/i.test(oracleText)) {
+      outputs.push('creature_dies');
+    }
+
+    return { card: { card, quantity }, triggers, outputs };
+  });
+
+  // Find feedback loops: A's output matches B's trigger AND B's output matches A's trigger
+  for (let i = 0; i < cardPatterns.length; i++) {
+    for (let j = i + 1; j < cardPatterns.length; j++) {
+      const patternA = cardPatterns[i];
+      const patternB = cardPatterns[j];
+
+      // Check if A's outputs trigger B and B's outputs trigger A
+      for (const outputA of patternA.outputs) {
+        for (const outputB of patternB.outputs) {
+          if (
+            patternB.triggers.includes(outputA) &&
+            patternA.triggers.includes(outputB)
+          ) {
+            // Found a feedback loop!
+            const loopType = `${outputB}_${outputA}`;
+            const description = `${patternA.card.card.name} produces ${outputA}, triggering ${patternB.card.card.name}, which produces ${outputB}, triggering ${patternA.card.card.name}`;
+
+            // Calculate score based on quantities and loop strength
+            let score = 6; // Base score for any feedback loop
+            const totalQuantity = patternA.card.quantity + patternB.card.quantity;
+            if (totalQuantity >= 8) score = 9; // High density
+            else if (totalQuantity >= 6) score = 8;
+            else if (totalQuantity >= 4) score = 7;
+
+            loops.push({
+              loopType,
+              cardA: patternA.card.card.name,
+              cardB: patternB.card.card.name,
+              triggerA: outputB,
+              outputA: outputA,
+              triggerB: outputA,
+              outputB: outputB,
+              description,
+              score,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return loops;
+}
+
+/**
  * Analyzes deck for all synergies and calculates overall score
  */
 export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
@@ -345,6 +464,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const graveyardSynergy = detectGraveyardSynergy(cards);
   const counterSynergy = detectCounterSynergy(cards);
   const keywordClusters = detectKeywordClusters(cards);
+  const feedbackLoops = detectFeedbackLoops(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -374,6 +494,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Feedback loops (high value synergy)
+  if (feedbackLoops.length > 0) {
+    overallScore += Math.max(...feedbackLoops.map((loop) => loop.score));
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -392,6 +518,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     graveyardSynergy,
     counterSynergy,
     keywordClusters,
+    feedbackLoops,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

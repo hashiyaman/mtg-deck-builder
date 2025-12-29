@@ -195,6 +195,17 @@ export function buildStrategyAnalysisPrompt(
     });
   }
 
+  // フィードバックループ（相互増幅）
+  if (synergyAnalysis.feedbackLoops.length > 0) {
+    synergyText += '\nフィードバックループ（相互増幅）:\n';
+    synergyAnalysis.feedbackLoops.forEach((loop) => {
+      synergyText += `- ${loop.cardA} ⇄ ${loop.cardB} (スコア:${loop.score}/10)\n`;
+      synergyText += `  ${loop.cardA}: ${loop.triggerA} → ${loop.outputA}\n`;
+      synergyText += `  ${loop.cardB}: ${loop.triggerB} → ${loop.outputB}\n`;
+      synergyText += `  説明: ${loop.description}\n`;
+    });
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:
