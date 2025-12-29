@@ -72,6 +72,16 @@ export interface ManaAccelerationSynergy {
   score: number; // 1-10
 }
 
+export interface SpellslingerSynergy {
+  spellTriggers: string[]; // Cards that trigger when casting instants/sorceries
+  spellCopiers: string[]; // Cards that copy spells
+  spellRecursion: string[]; // Cards that reuse spells from graveyard
+  cardAdvantage: string[]; // Cards that draw/generate advantage from spells
+  costReduction: string[]; // Cost reduction for instants/sorceries
+  instantsAndSorceries: number; // Count of instant/sorcery cards
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -82,6 +92,7 @@ export interface SynergyAnalysis {
   thresholdSynergies: ThresholdSynergy[];
   sacrificeSynergy: SacrificeSynergy | null;
   manaAccelerationSynergy: ManaAccelerationSynergy | null;
+  spellslingerSynergy: SpellslingerSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -617,6 +628,160 @@ export function detectManaAccelerationSynergy(cards: DeckCard[]): ManaAccelerati
 }
 
 /**
+ * Detects spellslinger synergies (instant/sorcery-focused strategies)
+ */
+export function detectSpellslingerSynergy(cards: DeckCard[]): SpellslingerSynergy | null {
+  const spellTriggers: string[] = [];
+  const spellCopiers: string[] = [];
+  const spellRecursion: string[] = [];
+  const cardAdvantage: string[] = [];
+  const costReduction: string[] = [];
+  let instantsAndSorceries = 0;
+
+  // Spell trigger patterns (cast instant/sorcery triggers)
+  const spellTriggerPatterns = [
+    /whenever you cast an instant or sorcery/i,
+    /whenever you cast.*instant.*sorcery/i,
+    /whenever you cast a noncreature spell/i,
+    /whenever you cast.*noncreature/i,
+    /prowess/i, // Prowess is a spell trigger mechanic
+  ];
+
+  // Spell copy patterns
+  const spellCopyPatterns = [
+    /copy.*instant.*sorcery/i,
+    /copy target.*spell/i,
+    /copy.*instant spell/i,
+    /copy.*sorcery spell/i,
+    /storm/i, // Storm copies spells
+    /fork|twincast|reverberate/i,
+  ];
+
+  // Spell recursion patterns (cast from graveyard, flashback, etc.)
+  const spellRecursionPatterns = [
+    /flashback/i,
+    /cast.*from.*graveyard/i,
+    /cast.*instant.*sorcery.*from.*graveyard/i,
+    /you may cast.*from.*graveyard/i,
+    /snapcaster|past in flames|mission briefing/i,
+  ];
+
+  // Card advantage patterns (draw when casting spells)
+  const cardAdvantagePatterns = [
+    /whenever you cast.*instant.*draw/i,
+    /whenever you cast.*sorcery.*draw/i,
+    /whenever you cast.*noncreature.*draw/i,
+    /whenever you cast.*spell.*draw/i,
+    /archmage emeritus|niv-mizzet|izzet chemister/i,
+  ];
+
+  // Cost reduction patterns (for instants/sorceries)
+  const costReductionPatterns = [
+    /instant.*sorcery.*cost.*less/i,
+    /instant.*sorcery.*cost.*{[0-9]}.*less/i,
+    /noncreature.*cost.*less/i,
+    /goblin electromancer|baral|jace's sanctum/i,
+  ];
+
+  cards.forEach(({ card, quantity }) => {
+    const oracleText = card.oracle_text || '';
+    const cardName = card.name;
+    const typeLine = card.type_line.toLowerCase();
+    const keywords = card.keywords || [];
+
+    // Count instant/sorcery cards
+    if (typeLine.includes('instant') || typeLine.includes('sorcery')) {
+      instantsAndSorceries += quantity;
+    }
+
+    // Check for spell triggers
+    if (spellTriggerPatterns.some((pattern) => pattern.test(oracleText)) ||
+        keywords.some((kw) => kw.toLowerCase() === 'prowess')) {
+      if (!spellTriggers.includes(cardName)) {
+        spellTriggers.push(cardName);
+      }
+    }
+
+    // Check for spell copiers
+    if (spellCopyPatterns.some((pattern) => pattern.test(oracleText)) ||
+        keywords.some((kw) => kw.toLowerCase() === 'storm')) {
+      if (!spellCopiers.includes(cardName)) {
+        spellCopiers.push(cardName);
+      }
+    }
+
+    // Check for spell recursion
+    if (spellRecursionPatterns.some((pattern) => pattern.test(oracleText)) ||
+        keywords.some((kw) => kw.toLowerCase() === 'flashback')) {
+      if (!spellRecursion.includes(cardName)) {
+        spellRecursion.push(cardName);
+      }
+    }
+
+    // Check for card advantage
+    if (cardAdvantagePatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!cardAdvantage.includes(cardName)) {
+        cardAdvantage.push(cardName);
+      }
+    }
+
+    // Check for cost reduction
+    if (costReductionPatterns.some((pattern) => pattern.test(oracleText))) {
+      if (!costReduction.includes(cardName)) {
+        costReduction.push(cardName);
+      }
+    }
+  });
+
+  // Total enablers (cards that care about spells)
+  const totalEnablers = spellTriggers.length + spellCopiers.length +
+                       spellRecursion.length + cardAdvantage.length +
+                       costReduction.length;
+
+  // Need at least some enablers AND a decent number of instants/sorceries
+  if (totalEnablers === 0 || instantsAndSorceries < 8) {
+    return null;
+  }
+
+  // Count number of different synergy types present
+  const synergyTypes = (spellTriggers.length > 0 ? 1 : 0) +
+                      (spellCopiers.length > 0 ? 1 : 0) +
+                      (spellRecursion.length > 0 ? 1 : 0) +
+                      (cardAdvantage.length > 0 ? 1 : 0) +
+                      (costReduction.length > 0 ? 1 : 0);
+
+  // Scoring based on spell density, enablers, and diversity
+  let score = 0;
+
+  if (totalEnablers >= 8 && instantsAndSorceries >= 20 && synergyTypes >= 4) {
+    score = 9; // Dedicated spellslinger deck
+  } else if ((totalEnablers >= 6 && instantsAndSorceries >= 18 && synergyTypes >= 3) ||
+             (totalEnablers >= 8 && instantsAndSorceries >= 15)) {
+    score = 8; // Strong spellslinger strategy
+  } else if ((totalEnablers >= 5 && instantsAndSorceries >= 15 && synergyTypes >= 3) ||
+             (totalEnablers >= 6 && instantsAndSorceries >= 12)) {
+    score = 7; // Good spellslinger synergy
+  } else if ((totalEnablers >= 4 && instantsAndSorceries >= 12) ||
+             (totalEnablers >= 5 && instantsAndSorceries >= 10)) {
+    score = 6; // Moderate spellslinger
+  } else if (totalEnablers >= 3 && instantsAndSorceries >= 10) {
+    score = 5; // Light spellslinger
+  } else {
+    score = 4; // Minimal spellslinger
+  }
+
+  return {
+    spellTriggers,
+    spellCopiers,
+    spellRecursion,
+    cardAdvantage,
+    costReduction,
+    instantsAndSorceries,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -924,6 +1089,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const thresholdSynergies = detectThresholdSynergies(cards);
   const sacrificeSynergy = detectSacrificeSynergy(cards);
   const manaAccelerationSynergy = detectManaAccelerationSynergy(cards);
+  const spellslingerSynergy = detectSpellslingerSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -977,6 +1143,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Spellslinger synergy
+  if (spellslingerSynergy && spellslingerSynergy.score > 0) {
+    overallScore += spellslingerSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -999,6 +1171,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     thresholdSynergies,
     sacrificeSynergy,
     manaAccelerationSynergy,
+    spellslingerSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

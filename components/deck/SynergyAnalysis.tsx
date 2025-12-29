@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Target,
   Heart,
-  TreeDeciduous
+  TreeDeciduous,
+  Wand2
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -31,7 +32,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.feedbackLoops.length > 0 ||
     synergies.thresholdSynergies.length > 0 ||
     synergies.sacrificeSynergy !== null ||
-    synergies.manaAccelerationSynergy !== null;
+    synergies.manaAccelerationSynergy !== null ||
+    synergies.spellslingerSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -334,6 +336,55 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                   {[...new Set(synergies.manaAccelerationSynergy.payoffs)].slice(0, 5).join(', ')}
                   {[...new Set(synergies.manaAccelerationSynergy.payoffs)].length > 5 &&
                     ` 他${[...new Set(synergies.manaAccelerationSynergy.payoffs)].length - 5}枚`}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Spellslinger Synergy */}
+        {synergies.spellslingerSynergy && (
+          <div className="border-l-4 border-l-violet-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Wand2 className="h-4 w-4 text-violet-500" />
+              <h4 className="font-semibold text-sm">スペルスリンガー（インスタント・ソーサリー）</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.spellslingerSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="text-xs">
+                <span className="text-muted-foreground">インスタント・ソーサリー: </span>
+                {synergies.spellslingerSynergy.instantsAndSorceries}枚
+              </div>
+              {synergies.spellslingerSynergy.spellTriggers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">呪文キャスト誘発: </span>
+                  {synergies.spellslingerSynergy.spellTriggers.join(', ')}
+                </div>
+              )}
+              {synergies.spellslingerSynergy.spellCopiers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">呪文コピー: </span>
+                  {synergies.spellslingerSynergy.spellCopiers.join(', ')}
+                </div>
+              )}
+              {synergies.spellslingerSynergy.spellRecursion.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">墓地再利用: </span>
+                  {synergies.spellslingerSynergy.spellRecursion.join(', ')}
+                </div>
+              )}
+              {synergies.spellslingerSynergy.cardAdvantage.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">カードアドバンテージ: </span>
+                  {synergies.spellslingerSynergy.cardAdvantage.join(', ')}
+                </div>
+              )}
+              {synergies.spellslingerSynergy.costReduction.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">コスト軽減: </span>
+                  {synergies.spellslingerSynergy.costReduction.join(', ')}
                 </div>
               )}
             </div>

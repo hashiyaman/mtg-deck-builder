@@ -9,6 +9,7 @@ import {
   detectThresholdSynergies,
   detectSacrificeSynergy,
   detectManaAccelerationSynergy,
+  detectSpellslingerSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1122,6 +1123,200 @@ describe('Synergy Analyzer', () => {
       ];
 
       const result = detectManaAccelerationSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectSpellslingerSynergy', () => {
+    it('should detect full spellslinger strategy with all components', () => {
+      const cards: DeckCard[] = [
+        // Spell triggers
+        createDeckCard(createMockCard({ name: 'Young Pyromancer', oracle_text: 'Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Monastery Mentor', oracle_text: 'Whenever you cast a noncreature spell, create a 1/1 white Monk token.' }), 2),
+        // Spell copiers
+        createDeckCard(createMockCard({ name: 'Fork', oracle_text: 'Copy target instant or sorcery spell.' }), 2),
+        createDeckCard(createMockCard({ name: 'Thousand-Year Storm', oracle_text: 'Whenever you cast an instant or sorcery spell, copy it for each other instant and sorcery spell cast before it this turn.' }), 1),
+        // Spell recursion
+        createDeckCard(createMockCard({ name: 'Snapcaster Mage', oracle_text: 'When Snapcaster Mage enters, target instant or sorcery card in your graveyard gains flashback.' }), 2),
+        createDeckCard(createMockCard({ name: 'Past in Flames', oracle_text: 'Each instant and sorcery card in your graveyard gains flashback.' }), 1),
+        // Card advantage
+        createDeckCard(createMockCard({ name: 'Archmage Emeritus', oracle_text: 'Whenever you cast an instant or sorcery spell, draw a card.' }), 2),
+        // Cost reduction
+        createDeckCard(createMockCard({ name: 'Goblin Electromancer', oracle_text: 'Instant and sorcery spells you cast cost {1} less.' }), 4),
+        // Instants and sorceries (20 cards)
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Preordain', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Ponder', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Gitaxian Probe', type_line: 'Sorcery' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.spellTriggers).toContain('Young Pyromancer');
+      expect(result?.spellTriggers).toContain('Monastery Mentor');
+      expect(result?.spellCopiers).toContain('Fork');
+      expect(result?.spellCopiers).toContain('Thousand-Year Storm');
+      expect(result?.spellRecursion).toContain('Snapcaster Mage');
+      expect(result?.spellRecursion).toContain('Past in Flames');
+      expect(result?.cardAdvantage).toContain('Archmage Emeritus');
+      expect(result?.costReduction).toContain('Goblin Electromancer');
+      expect(result?.instantsAndSorceries).toBe(20);
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should detect spell triggers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Young Pyromancer', oracle_text: 'Whenever you cast an instant or sorcery spell, create a 1/1 token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Talrand', oracle_text: 'Whenever you cast an instant or sorcery spell, create a 2/2 Drake token.' }), 1),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.spellTriggers).toContain('Young Pyromancer');
+      expect(result?.spellTriggers).toContain('Talrand');
+    });
+
+    it('should detect prowess as spell trigger', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Monastery Swiftspear', keywords: ['Prowess'] }), 4),
+        createDeckCard(createMockCard({ name: 'Soul-Scar Mage', keywords: ['Prowess'] }), 4),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Lava Spike', type_line: 'Sorcery' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.spellTriggers).toContain('Monastery Swiftspear');
+      expect(result?.spellTriggers).toContain('Soul-Scar Mage');
+    });
+
+    it('should detect spell copiers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Fork', oracle_text: 'Copy target instant or sorcery spell.' }), 2),
+        createDeckCard(createMockCard({ name: 'Twincast', oracle_text: 'Copy target instant or sorcery spell.' }), 2),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.spellCopiers).toContain('Fork');
+      expect(result?.spellCopiers).toContain('Twincast');
+    });
+
+    it('should detect spell recursion (flashback)', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Snapcaster Mage', oracle_text: 'Target instant or sorcery card in your graveyard gains flashback.' }), 2),
+        createDeckCard(createMockCard({ name: 'Past in Flames', oracle_text: 'Each instant and sorcery card in your graveyard gains flashback.' }), 1),
+        createDeckCard(createMockCard({ name: 'Think Twice', type_line: 'Instant', keywords: ['Flashback'] }), 4),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.spellRecursion).toContain('Snapcaster Mage');
+      expect(result?.spellRecursion).toContain('Past in Flames');
+      expect(result?.spellRecursion).toContain('Think Twice');
+    });
+
+    it('should detect card advantage from spells', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Archmage Emeritus', oracle_text: 'Whenever you cast an instant or sorcery spell, draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.cardAdvantage).toContain('Archmage Emeritus');
+    });
+
+    it('should detect cost reduction for spells', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Goblin Electromancer', oracle_text: 'Instant and sorcery spells you cast cost {1} less to cast.' }), 4),
+        createDeckCard(createMockCard({ name: 'Baral, Chief of Compliance', oracle_text: 'Instant and sorcery spells you cast cost {1} less.' }), 1),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.costReduction).toContain('Goblin Electromancer');
+      expect(result?.costReduction).toContain('Baral, Chief of Compliance');
+    });
+
+    it('should count instant and sorcery cards', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Young Pyromancer', oracle_text: 'Whenever you cast an instant or sorcery spell, create a 1/1 token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Preordain', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Ponder', type_line: 'Sorcery' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.instantsAndSorceries).toBe(16);
+    });
+
+    it('should assign high score for dedicated spellslinger deck', () => {
+      const cards: DeckCard[] = [
+        // 8+ enablers
+        createDeckCard(createMockCard({ name: 'Young Pyromancer', oracle_text: 'Whenever you cast an instant or sorcery spell, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Monastery Mentor', oracle_text: 'Whenever you cast a noncreature spell, create a token.' }), 2),
+        createDeckCard(createMockCard({ name: 'Fork', oracle_text: 'Copy target instant or sorcery spell.' }), 2),
+        createDeckCard(createMockCard({ name: 'Snapcaster Mage', oracle_text: 'Target instant or sorcery gains flashback.' }), 2),
+        createDeckCard(createMockCard({ name: 'Archmage Emeritus', oracle_text: 'Whenever you cast an instant or sorcery, draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Goblin Electromancer', oracle_text: 'Instant and sorcery spells cost {1} less.' }), 4),
+        // 20+ spells
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Preordain', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Ponder', type_line: 'Sorcery' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', type_line: 'Instant' }), 4),
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient spells', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Young Pyromancer', oracle_text: 'Whenever you cast an instant or sorcery spell, create a token.' }), 4),
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 2),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 2),
+        // Only 4 instants/sorceries, below threshold of 8
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no enablers', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Lightning Bolt', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Counterspell', type_line: 'Instant' }), 4),
+        createDeckCard(createMockCard({ name: 'Opt', type_line: 'Instant' }), 4),
+        // 12 spells but no enablers
+      ];
+
+      const result = detectSpellslingerSynergy(cards);
 
       expect(result).toBeNull();
     });

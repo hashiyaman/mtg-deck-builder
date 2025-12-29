@@ -260,6 +260,28 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // スペルスリンガーシナジー (Spellslinger)
+  if (synergyAnalysis.spellslingerSynergy) {
+    const sp = synergyAnalysis.spellslingerSynergy;
+    synergyText += '\nスペルスリンガーシナジー (インスタント・ソーサリー型) (スコア:' + sp.score + '/10):\n';
+    synergyText += `- インスタント・ソーサリー枚数: ${sp.instantsAndSorceries}枚\n`;
+    if (sp.spellTriggers.length > 0) {
+      synergyText += `- 呪文キャスト誘発: ${sp.spellTriggers.join(', ')}\n`;
+    }
+    if (sp.spellCopiers.length > 0) {
+      synergyText += `- 呪文コピー: ${sp.spellCopiers.join(', ')}\n`;
+    }
+    if (sp.spellRecursion.length > 0) {
+      synergyText += `- 墓地再利用: ${sp.spellRecursion.join(', ')}\n`;
+    }
+    if (sp.cardAdvantage.length > 0) {
+      synergyText += `- カードアドバンテージ: ${sp.cardAdvantage.join(', ')}\n`;
+    }
+    if (sp.costReduction.length > 0) {
+      synergyText += `- コスト軽減: ${sp.costReduction.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:
