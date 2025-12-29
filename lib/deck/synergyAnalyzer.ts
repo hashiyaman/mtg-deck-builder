@@ -98,6 +98,16 @@ export interface TapUntapSynergy {
   score: number; // 1-10
 }
 
+export interface EnchantmentArtifactSynergy {
+  enchantmentTriggers: string[]; // Constellation, enchantment ETB triggers
+  enchantmentPayoffs: string[]; // Cards that care about enchantments
+  artifactTriggers: string[]; // Artifact ETB triggers
+  artifactPayoffs: string[]; // Cards that care about artifacts
+  enchantmentCount: number; // Total enchantments in deck
+  artifactCount: number; // Total artifacts in deck
+  score: number; // 1-10
+}
+
 export interface SynergyAnalysis {
   tribalSynergies: TribalSynergy[];
   tokenSynergy: TokenSynergy | null;
@@ -111,6 +121,7 @@ export interface SynergyAnalysis {
   spellslingerSynergy: SpellslingerSynergy | null;
   attackTriggerSynergy: AttackTriggerSynergy | null;
   tapUntapSynergy: TapUntapSynergy | null;
+  enchantmentArtifactSynergy: EnchantmentArtifactSynergy | null;
   overallScore: number; // 1-10
 }
 
@@ -1037,6 +1048,147 @@ export function detectTapUntapSynergy(cards: DeckCard[]): TapUntapSynergy | null
 }
 
 /**
+ * Detects enchantment/artifact theme synergies
+ */
+export function detectEnchantmentArtifactSynergy(cards: DeckCard[]): EnchantmentArtifactSynergy | null {
+  const enchantmentTriggers: string[] = [];
+  const enchantmentPayoffs: string[] = [];
+  const artifactTriggers: string[] = [];
+  const artifactPayoffs: string[] = [];
+  let enchantmentCount = 0;
+  let artifactCount = 0;
+
+  // Enchantment trigger patterns (Constellation, etc.)
+  const enchantmentTriggerPatterns = [
+    /constellation/i, // Constellation mechanic
+    /whenever.*enchantment.*enters/i,
+    /when.*enchantment.*enters/i,
+    /whenever you cast an enchantment/i,
+    /when you cast an enchantment/i,
+  ];
+
+  // Enchantment payoff patterns
+  const enchantmentPayoffPatterns = [
+    /enchantment you control/i,
+    /number of enchantments/i,
+    /each enchantment/i,
+    /for each enchantment/i,
+    /enchantments you control/i,
+  ];
+
+  // Artifact trigger patterns
+  const artifactTriggerPatterns = [
+    /whenever.*artifact.*enters/i,
+    /when.*artifact.*enters/i,
+    /whenever you cast an artifact/i,
+    /when you cast an artifact/i,
+  ];
+
+  // Artifact payoff patterns
+  const artifactPayoffPatterns = [
+    /artifact you control/i,
+    /number of artifacts/i,
+    /each artifact/i,
+    /for each artifact/i,
+    /artifacts you control/i,
+    /affinity for artifacts/i,
+    /improvise/i, // Improvise mechanic
+  ];
+
+  for (const deckCard of cards) {
+    const card = deckCard.card;
+    const oracle = card.oracle_text || '';
+    const name = card.name;
+    const typeLine = card.type_line || '';
+
+    // Count enchantments and artifacts
+    if (typeLine.includes('Enchantment')) {
+      enchantmentCount += deckCard.quantity;
+    }
+    if (typeLine.includes('Artifact')) {
+      artifactCount += deckCard.quantity;
+    }
+
+    // Check for enchantment triggers
+    const hasEnchantmentTrigger = enchantmentTriggerPatterns.some((pattern) => pattern.test(oracle));
+    if (hasEnchantmentTrigger && !enchantmentTriggers.includes(name)) {
+      enchantmentTriggers.push(name);
+    }
+
+    // Check for enchantment payoffs
+    const hasEnchantmentPayoff = enchantmentPayoffPatterns.some((pattern) => pattern.test(oracle));
+    if (hasEnchantmentPayoff && !enchantmentPayoffs.includes(name)) {
+      enchantmentPayoffs.push(name);
+    }
+
+    // Check for artifact triggers
+    const hasArtifactTrigger = artifactTriggerPatterns.some((pattern) => pattern.test(oracle));
+    if (hasArtifactTrigger && !artifactTriggers.includes(name)) {
+      artifactTriggers.push(name);
+    }
+
+    // Check for artifact payoffs
+    const hasArtifactPayoff = artifactPayoffPatterns.some((pattern) => pattern.test(oracle));
+    if (hasArtifactPayoff && !artifactPayoffs.includes(name)) {
+      artifactPayoffs.push(name);
+    }
+  }
+
+  // Total synergy cards
+  const totalEnchantmentSynergy = enchantmentTriggers.length + enchantmentPayoffs.length;
+  const totalArtifactSynergy = artifactTriggers.length + artifactPayoffs.length;
+
+  // Require at least 6 enchantments OR 6 artifacts, AND 2+ synergy cards
+  if ((enchantmentCount < 6 && artifactCount < 6) || (totalEnchantmentSynergy + totalArtifactSynergy < 2)) {
+    return null;
+  }
+
+  // Calculate score (1-10)
+  let score = 4; // Base score
+
+  // Enchantment theme scoring
+  if (enchantmentCount >= 15 && totalEnchantmentSynergy >= 5) {
+    score = Math.max(score, 9); // Dedicated enchantment deck
+  } else if (enchantmentCount >= 12 && totalEnchantmentSynergy >= 4) {
+    score = Math.max(score, 8); // Strong enchantment theme
+  } else if (enchantmentCount >= 10 && totalEnchantmentSynergy >= 3) {
+    score = Math.max(score, 7); // Solid enchantment synergy
+  } else if (enchantmentCount >= 8 && totalEnchantmentSynergy >= 2) {
+    score = Math.max(score, 6); // Moderate enchantment theme
+  } else if (enchantmentCount >= 6 && totalEnchantmentSynergy >= 1) {
+    score = Math.max(score, 5); // Light enchantment theme
+  }
+
+  // Artifact theme scoring
+  if (artifactCount >= 15 && totalArtifactSynergy >= 5) {
+    score = Math.max(score, 9); // Dedicated artifact deck
+  } else if (artifactCount >= 12 && totalArtifactSynergy >= 4) {
+    score = Math.max(score, 8); // Strong artifact theme
+  } else if (artifactCount >= 10 && totalArtifactSynergy >= 3) {
+    score = Math.max(score, 7); // Solid artifact synergy
+  } else if (artifactCount >= 8 && totalArtifactSynergy >= 2) {
+    score = Math.max(score, 6); // Moderate artifact theme
+  } else if (artifactCount >= 6 && totalArtifactSynergy >= 1) {
+    score = Math.max(score, 5); // Light artifact theme
+  }
+
+  // Bonus for having both themes
+  if (enchantmentCount >= 8 && artifactCount >= 8 && totalEnchantmentSynergy >= 2 && totalArtifactSynergy >= 2) {
+    score = Math.min(10, score + 1); // Bonus for dual theme
+  }
+
+  return {
+    enchantmentTriggers,
+    enchantmentPayoffs,
+    artifactTriggers,
+    artifactPayoffs,
+    enchantmentCount,
+    artifactCount,
+    score,
+  };
+}
+
+/**
  * Detects threshold-based synergies (Metalcraft, Delirium, Domain, etc.)
  */
 export function detectThresholdSynergies(cards: DeckCard[]): ThresholdSynergy[] {
@@ -1347,6 +1499,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
   const spellslingerSynergy = detectSpellslingerSynergy(cards);
   const attackTriggerSynergy = detectAttackTriggerSynergy(cards);
   const tapUntapSynergy = detectTapUntapSynergy(cards);
+  const enchantmentArtifactSynergy = detectEnchantmentArtifactSynergy(cards);
 
   // Calculate overall synergy score (1-10)
   let overallScore = 0;
@@ -1418,6 +1571,12 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     synergyCount++;
   }
 
+  // Enchantment/artifact synergy
+  if (enchantmentArtifactSynergy && enchantmentArtifactSynergy.score > 0) {
+    overallScore += enchantmentArtifactSynergy.score;
+    synergyCount++;
+  }
+
   // Keyword clusters (bonus points for 2+ clusters)
   if (keywordClusters.length >= 2) {
     overallScore += 5;
@@ -1443,6 +1602,7 @@ export function analyzeDeckSynergies(cards: DeckCard[]): SynergyAnalysis {
     spellslingerSynergy,
     attackTriggerSynergy,
     tapUntapSynergy,
+    enchantmentArtifactSynergy,
     overallScore: Math.round(finalScore * 10) / 10, // Round to 1 decimal
   };
 }

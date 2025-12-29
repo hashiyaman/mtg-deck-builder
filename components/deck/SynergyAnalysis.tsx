@@ -17,7 +17,8 @@ import {
   TreeDeciduous,
   Wand2,
   Swords,
-  RefreshCw
+  RefreshCw,
+  Package
 } from 'lucide-react';
 
 interface SynergyAnalysisProps {
@@ -37,7 +38,8 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
     synergies.manaAccelerationSynergy !== null ||
     synergies.spellslingerSynergy !== null ||
     synergies.attackTriggerSynergy !== null ||
-    synergies.tapUntapSynergy !== null;
+    synergies.tapUntapSynergy !== null ||
+    synergies.enchantmentArtifactSynergy !== null;
 
   if (!hasAnySynergy) {
     return (
@@ -465,6 +467,51 @@ export const SynergyAnalysis = memo(function SynergyAnalysis({ synergies }: Syne
                 <div className="text-xs">
                   <span className="text-muted-foreground">警戒持ち: </span>
                   {synergies.tapUntapSynergy.vigilanceCards.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Enchantment/Artifact Synergy */}
+        {synergies.enchantmentArtifactSynergy && (
+          <div className="border-l-4 border-l-fuchsia-500 pl-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="h-4 w-4 text-fuchsia-500" />
+              <h4 className="font-semibold text-sm">エンチャント/アーティファクトテーマ</h4>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {synergies.enchantmentArtifactSynergy.score}/10
+              </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="text-xs">
+                <span className="text-muted-foreground">エンチャント数: </span>
+                {synergies.enchantmentArtifactSynergy.enchantmentCount}枚 /
+                <span className="text-muted-foreground"> アーティファクト数: </span>
+                {synergies.enchantmentArtifactSynergy.artifactCount}枚
+              </div>
+              {synergies.enchantmentArtifactSynergy.enchantmentTriggers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">エンチャント誘発 (Constellation等): </span>
+                  {synergies.enchantmentArtifactSynergy.enchantmentTriggers.join(', ')}
+                </div>
+              )}
+              {synergies.enchantmentArtifactSynergy.enchantmentPayoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">エンチャント参照: </span>
+                  {synergies.enchantmentArtifactSynergy.enchantmentPayoffs.join(', ')}
+                </div>
+              )}
+              {synergies.enchantmentArtifactSynergy.artifactTriggers.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">アーティファクト誘発: </span>
+                  {synergies.enchantmentArtifactSynergy.artifactTriggers.join(', ')}
+                </div>
+              )}
+              {synergies.enchantmentArtifactSynergy.artifactPayoffs.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-muted-foreground">アーティファクト参照 (Affinity/Improvise等): </span>
+                  {synergies.enchantmentArtifactSynergy.artifactPayoffs.join(', ')}
                 </div>
               )}
             </div>

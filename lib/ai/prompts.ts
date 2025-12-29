@@ -316,6 +316,25 @@ export function buildStrategyAnalysisPrompt(
     }
   }
 
+  // エンチャント/アーティファクトシナジー (Enchantment/Artifact)
+  if (synergyAnalysis.enchantmentArtifactSynergy) {
+    const ea = synergyAnalysis.enchantmentArtifactSynergy;
+    synergyText += '\nエンチャント/アーティファクトテーマ (スコア:' + ea.score + '/10):\n';
+    synergyText += `- エンチャント数: ${ea.enchantmentCount}枚 / アーティファクト数: ${ea.artifactCount}枚\n`;
+    if (ea.enchantmentTriggers.length > 0) {
+      synergyText += `- エンチャント誘発 (Constellation等): ${ea.enchantmentTriggers.join(', ')}\n`;
+    }
+    if (ea.enchantmentPayoffs.length > 0) {
+      synergyText += `- エンチャント参照: ${ea.enchantmentPayoffs.join(', ')}\n`;
+    }
+    if (ea.artifactTriggers.length > 0) {
+      synergyText += `- アーティファクト誘発: ${ea.artifactTriggers.join(', ')}\n`;
+    }
+    if (ea.artifactPayoffs.length > 0) {
+      synergyText += `- アーティファクト参照 (Affinity/Improvise等): ${ea.artifactPayoffs.join(', ')}\n`;
+    }
+  }
+
   return `【戦略・シナジー分析】${deck.name} (${deck.format})
 
 カードリスト:

@@ -12,6 +12,7 @@ import {
   detectSpellslingerSynergy,
   detectAttackTriggerSynergy,
   detectTapUntapSynergy,
+  detectEnchantmentArtifactSynergy,
   analyzeDeckSynergies,
 } from '../synergyAnalyzer';
 import { DeckCard } from '@/types/deck';
@@ -1678,6 +1679,141 @@ describe('Synergy Analyzer', () => {
       ];
 
       const result = detectTapUntapSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectEnchantmentArtifactSynergy', () => {
+    it('should detect enchantment theme with Constellation', () => {
+      const cards: DeckCard[] = [
+        // Enchantment triggers (Constellation)
+        createDeckCard(createMockCard({ name: 'Eidolon of Blossoms', type_line: 'Enchantment Creature — Spirit', oracle_text: 'Constellation — Whenever an enchantment enters the battlefield under your control, draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Doomwake Giant', type_line: 'Enchantment Creature — Giant', oracle_text: 'Constellation — Whenever an enchantment enters, creatures your opponents control get -1/-1.' }), 2),
+        // Enchantment payoffs
+        createDeckCard(createMockCard({ name: 'Sphere of Safety', type_line: 'Enchantment', oracle_text: 'Creatures can\'t attack you unless their controller pays {1} for each enchantment you control.' }), 2),
+        // Enchantments
+        createDeckCard(createMockCard({ name: 'Abundant Growth', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Utopia Sprawl', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Sterling Grove', type_line: 'Enchantment' }), 2),
+        createDeckCard(createMockCard({ name: 'Ghostly Prison', type_line: 'Enchantment' }), 2),
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enchantmentTriggers).toContain('Eidolon of Blossoms');
+      expect(result?.enchantmentTriggers).toContain('Doomwake Giant');
+      expect(result?.enchantmentPayoffs).toContain('Sphere of Safety');
+      expect(result?.enchantmentCount).toBeGreaterThanOrEqual(18);
+      expect(result?.score).toBeGreaterThanOrEqual(7);
+    });
+
+    it('should detect artifact theme with triggers and payoffs', () => {
+      const cards: DeckCard[] = [
+        // Artifact triggers
+        createDeckCard(createMockCard({ name: 'Sai, Master Thopterist', oracle_text: 'Whenever you cast an artifact spell, create a 1/1 Thopter token.' }), 2),
+        createDeckCard(createMockCard({ name: 'Jhoira\'s Familiar', oracle_text: 'Whenever an artifact enters under your control, draw a card.' }), 2),
+        // Artifact payoffs
+        createDeckCard(createMockCard({ name: 'Myr Enforcer', oracle_text: 'Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)' }), 4),
+        createDeckCard(createMockCard({ name: 'Thought Monitor', oracle_text: 'Affinity for artifacts' }), 4),
+        // Artifacts
+        createDeckCard(createMockCard({ name: 'Chromatic Star', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'Springleaf Drum', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'Mox Opal', type_line: 'Artifact' }), 1),
+        createDeckCard(createMockCard({ name: 'Ornithopter', type_line: 'Artifact Creature' }), 4),
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.artifactTriggers).toContain('Sai, Master Thopterist');
+      expect(result?.artifactTriggers).toContain('Jhoira\'s Familiar');
+      expect(result?.artifactPayoffs).toContain('Myr Enforcer');
+      expect(result?.artifactPayoffs).toContain('Thought Monitor');
+      expect(result?.artifactCount).toBeGreaterThanOrEqual(13);
+      expect(result?.score).toBeGreaterThanOrEqual(7);
+    });
+
+    it('should detect dual enchantment/artifact theme', () => {
+      const cards: DeckCard[] = [
+        // Enchantment synergy
+        createDeckCard(createMockCard({ name: 'Eidolon of Blossoms', oracle_text: 'Constellation — Whenever an enchantment enters, draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Sphere of Safety', oracle_text: 'Pay {1} for each enchantment you control.' }), 2),
+        createDeckCard(createMockCard({ name: 'Abundant Growth', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Utopia Sprawl', type_line: 'Enchantment — Aura' }), 4),
+        // Artifact synergy
+        createDeckCard(createMockCard({ name: 'Sai, Master Thopterist', oracle_text: 'Whenever you cast an artifact spell, create a token.' }), 2),
+        createDeckCard(createMockCard({ name: 'Myr Enforcer', oracle_text: 'Affinity for artifacts' }), 4),
+        createDeckCard(createMockCard({ name: 'Chromatic Star', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'Springleaf Drum', type_line: 'Artifact' }), 4),
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.enchantmentCount).toBeGreaterThanOrEqual(8);
+      expect(result?.artifactCount).toBeGreaterThanOrEqual(8);
+      expect(result?.score).toBeGreaterThanOrEqual(7); // Bonus for dual theme
+    });
+
+    it('should detect Improvise mechanic as artifact payoff', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Reverse Engineer', oracle_text: 'Improvise (Your artifacts can help cast this spell.)' }), 4),
+        createDeckCard(createMockCard({ name: 'Battle at the Bridge', oracle_text: 'Improvise' }), 4),
+        createDeckCard(createMockCard({ name: 'Chromatic Star', type_line: 'Artifact' }), 4),
+        createDeckCard(createMockCard({ name: 'Springleaf Drum', type_line: 'Artifact' }), 4),
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.artifactPayoffs).toContain('Reverse Engineer');
+      expect(result?.artifactPayoffs).toContain('Battle at the Bridge');
+    });
+
+    it('should assign high score for dedicated enchantment deck', () => {
+      const cards: DeckCard[] = [
+        // 5+ synergy cards
+        createDeckCard(createMockCard({ name: 'Eidolon of Blossoms', oracle_text: 'Constellation — Whenever an enchantment enters, draw a card.' }), 4),
+        createDeckCard(createMockCard({ name: 'Doomwake Giant', oracle_text: 'Constellation — Whenever an enchantment enters, -1/-1.' }), 2),
+        createDeckCard(createMockCard({ name: 'Sphere of Safety', oracle_text: 'Pay {1} for each enchantment you control.' }), 2),
+        createDeckCard(createMockCard({ name: 'Setessan Champion', oracle_text: 'Whenever an enchantment enters, put a +1/+1 counter on this.' }), 4),
+        createDeckCard(createMockCard({ name: 'Enchantress\'s Presence', oracle_text: 'Whenever you cast an enchantment, draw a card.' }), 2),
+        // 15+ enchantments
+        createDeckCard(createMockCard({ name: 'Abundant Growth', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Utopia Sprawl', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Sterling Grove', type_line: 'Enchantment' }), 2),
+        createDeckCard(createMockCard({ name: 'Ghostly Prison', type_line: 'Enchantment' }), 2),
+        createDeckCard(createMockCard({ name: 'Wild Growth', type_line: 'Enchantment — Aura' }), 4),
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).not.toBeNull();
+      expect(result?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it('should return null when insufficient enchantments/artifacts', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Eidolon of Blossoms', oracle_text: 'Constellation — Whenever an enchantment enters, draw a card.' }), 2),
+        createDeckCard(createMockCard({ name: 'Abundant Growth', type_line: 'Enchantment — Aura' }), 2),
+        // Only 4 enchantments, below threshold of 6
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no synergy cards', () => {
+      const cards: DeckCard[] = [
+        createDeckCard(createMockCard({ name: 'Abundant Growth', type_line: 'Enchantment — Aura' }), 4),
+        createDeckCard(createMockCard({ name: 'Utopia Sprawl', type_line: 'Enchantment — Aura' }), 4),
+        // 8 enchantments but no synergy cards
+      ];
+
+      const result = detectEnchantmentArtifactSynergy(cards);
 
       expect(result).toBeNull();
     });
