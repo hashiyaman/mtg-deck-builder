@@ -4,24 +4,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MTG (Magic: The Gathering) deck builder application. The codebase is currently empty and awaiting initial setup.
+This is an MTG (Magic: The Gathering) deck builder application built with Next.js, TypeScript, and Tailwind CSS.
 
-## Project Status
+## Core Features
 
-This is a new project with no existing code structure. When initializing this project, consider:
+- Card search powered by Scryfall API
+- Deck creation and management with localStorage persistence
+- Advanced manabase analysis with land classification
+- Deck statistics and mana curve visualization
+- AI-powered deck analysis using Google Gemini
+- Japanese card support
 
-- **Technology Stack**: Choose appropriate framework (React, Next.js, Vue, etc.) for frontend
-- **Data Source**: Integration with MTG card databases (Scryfall API is commonly used)
-- **Core Features**:
-  - Card search and filtering
-  - Deck creation and management
-  - Deck statistics and mana curve visualization
-  - Import/export functionality (common formats: text list, Arena, MTGO)
+## Coding Standards
+
+### Comments
+
+**All code comments must be written in English.**
+
+- Use clear, concise English for all comments
+- Document complex logic and algorithms
+- Add JSDoc comments for exported functions and types
+- Single-line comments for brief explanations
+- Multi-line comments for detailed documentation
+
+Example:
+```typescript
+/**
+ * Classify a land card into one of four categories
+ * based on its oracle text and gameplay characteristics
+ */
+export function classifyLand(card: Card): LandClassification {
+  // Basic lands always enter untapped
+  if (card.type_line.toLowerCase().includes('basic')) {
+    return { category: 'untapped', reason: 'Basic land' };
+  }
+  // ...
+}
+```
 
 ## Development Commands
 
-*To be populated once the project is initialized with a package manager and build tools.*
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run test` - Run tests
+- `npm run lint` - Run ESLint
 
 ## Architecture
 
-*To be documented as the application structure is established.*
+### Directory Structure
+
+- `/app` - Next.js app router pages
+- `/components` - React components
+- `/lib` - Utility functions and business logic
+- `/store` - Zustand state management
+- `/types` - TypeScript type definitions
+
+### Key Modules
+
+- `lib/deck/landClassifier.ts` - Land card classification system
+- `lib/deck/simulator.ts` - Deck simulation and statistics
+- `lib/scryfall/` - Scryfall API integration
+- `store/deckStore.ts` - Deck state management
